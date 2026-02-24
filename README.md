@@ -6,6 +6,7 @@ Starter includes:
 - Seeded website generation config
 - Dashboard with website CRUD + publish status
 - Website builder with live preview
+- Analytics tracking + charts
 
 ## Key UI modules
 - Auth (login/signup + OTP)
@@ -18,6 +19,23 @@ Starter includes:
   - Edit / Preview / Delete / Publish actions
   - builder loaded from saved config on edit
   - live preview panel
+  - analytics charts
+
+## Analytics tracked
+For each website, Firestore stores:
+
+```ts
+analytics: {
+  views,
+  whatsappClicks,
+  productClicks
+}
+```
+
+Tracked events:
+- Page views (on preview/edit open)
+- WhatsApp clicks (from live preview)
+- Product clicks (from live preview)
 
 ## Firestore structure
 - `users/{uid}`
@@ -28,6 +46,7 @@ Starter includes:
   - `content`
   - `thumbnailUrl`
   - `status` (`draft` | `published`)
+  - `analytics` (`views`, `whatsappClicks`, `productClicks`)
 
 ## Local setup
 1. `npm install`

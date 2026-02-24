@@ -5,6 +5,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  increment,
   query,
   runTransaction,
   serverTimestamp,
@@ -128,6 +129,11 @@ function mapWebsite(id: string, data: DocumentData): Website {
     status: data.status,
     designConfig: data.designConfig,
     content: data.content,
+    analytics: {
+      views: data.analytics?.views ?? 0,
+      whatsappClicks: data.analytics?.whatsappClicks ?? 0,
+      productClicks: data.analytics?.productClicks ?? 0,
+    },
   } as Website;
 }
 
@@ -141,6 +147,11 @@ export async function createWebsite(uid: string, input: CreateWebsiteInput): Pro
     templateId: input.templateId,
     designConfig: input.designConfig,
     content: input.content,
+    analytics: {
+      views: 0,
+      whatsappClicks: 0,
+      productClicks: 0,
+    },
     thumbnailUrl: 'https://images.unsplash.com/photo-1467232004584-a241de8bcf5d?auto=format&fit=crop&w=600&q=80',
     status: 'draft',
     createdAt: serverTimestamp(),
@@ -176,6 +187,39 @@ export async function publishWebsite(uid: string, websiteId: string): Promise<We
   await updateDoc(websiteRef, {
     status: 'published',
     publishedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  const snapshot = await getDoc(websiteRef);
+  return mapWebsite(snapshot.id, snapshot.data() as DocumentData);
+}
+
+export async function trackPageView(uid: string, websiteId: string): Promise<Website> {
+  const websiteRef = doc(firestoreDb, 'users', uid, 'websites', websiteId);
+  await updateDoc(websiteRef, {
+    'analytics.views': increment(1),
+    updatedAt: serverTimestamp(),
+  });
+
+  const snapshot = await getDoc(websiteRef);
+  return mapWebsite(snapshot.id, snapshot.data() as DocumentData);
+}
+
+export async function trackWhatsAppClick(uid: string, websiteId: string): Promise<Website> {
+  const websiteRef = doc(firestoreDb, 'users', uid, 'websites', websiteId);
+  await updateDoc(websiteRef, {
+    'analytics.whatsappClicks': increment(1),
+    updatedAt: serverTimestamp(),
+  });
+
+  const snapshot = await getDoc(websiteRef);
+  return mapWebsite(snapshot.id, snapshot.data() as DocumentData);
+}
+
+export async function trackProductClick(uid: string, websiteId: string): Promise<Website> {
+  const websiteRef = doc(firestoreDb, 'users', uid, 'websites', websiteId);
+  await updateDoc(websiteRef, {
+    'analytics.productClicks': increment(1),
     updatedAt: serverTimestamp(),
   });
 

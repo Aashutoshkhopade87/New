@@ -8,6 +8,9 @@ import {
   deleteWebsite,
   listWebsites,
   publishWebsite,
+  trackPageView,
+  trackProductClick,
+  trackWhatsAppClick,
   updateWebsite,
 } from '../services/firestoreService';
 import { WebsiteLivePreview } from '../components/WebsiteLivePreview';
@@ -26,6 +29,22 @@ const initialContent: WebsiteContent = {
   products: ['Product 1', 'Product 2'],
 };
 
+function ChartRow({ label, value, max }: { label: string; value: number; max: number }) {
+  const width = max === 0 ? 0 : Math.max(8, Math.round((value / max) * 100));
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-xs text-slate-600">
+        <span>{label}</span>
+        <span>{value}</span>
+      </div>
+      <div className="h-2 rounded bg-slate-200">
+        <div className="h-2 rounded bg-blue-500" style={{ width: `${width}%` }} />
+      </div>
+    </div>
+  );
+}
+
 export function DashboardPage({ user, profile }: DashboardPageProps) {
   const [websites, setWebsites] = useState<Website[]>([]);
   const [activeWebsite, setActiveWebsite] = useState<Website | null>(null);
@@ -43,10 +62,18 @@ export function DashboardPage({ user, profile }: DashboardPageProps) {
     void loadWebsites();
   }, [user.uid]);
 
+  async function setActiveWithTracking(website: Website, editing = false) {
+    const updated = await trackPageView(user.uid, website.id);
+    setWebsites((prev) => prev.map((item) => (item.id === website.id ? updated : item)));
+    setActiveWebsite(updated);
+    if (editing) {
+      setDraftContent(updated.content);
+      setMessage('Editing website with live preview.');
+    }
+  }
+
   function onEdit(website: Website) {
-    setActiveWebsite(website);
-    setDraftContent(website.content);
-    setMessage('Editing website with live preview.');
+    void setActiveWithTracking(website, true);
   }
 
   async function onCreate() {
@@ -90,18 +117,50 @@ export function DashboardPage({ user, profile }: DashboardPageProps) {
     setWebsites((prev) => prev.map((item) => (item.id === id ? updated : item)));
   }
 
+  async function onWhatsAppClick() {
+    if (!activeWebsite) {
+      return;
+    }
+
+    const updated = await trackWhatsAppClick(user.uid, activeWebsite.id);
+    setWebsites((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+    setActiveWebsite(updated);
+  }
+
+  async function onProductClick() {
+    if (!activeWebsite) {
+      return;
+    }
+
+    const updated = await trackProductClick(user.uid, activeWebsite.id);
+    setWebsites((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+    setActiveWebsite(updated);
+  }
+
   const previewConfig: DesignConfig | undefined = activeWebsite?.designConfig || designConfig;
   const previewContent = activeWebsite ? draftContent : initialContent;
 
-  const previewWebsite = useMemo(() => websites[0] ?? null, [websites]);
+  const chartMax = useMemo(() => {
+    return websites.reduce((max, site) => {
+      return Math.max(max, site.analytics.views, site.analytics.whatsappClicks, site.analytics.productClicks);
+    }, 0);
+  }, [websites]);
 
   return (
     <main className="min-h-screen bg-slate-100 p-4 md:p-6">
       <div className="mx-auto max-w-7xl space-y-5">
         <header className="rounded-2xl bg-white p-5 shadow-sm">
           <h1 className="text-2xl font-semibold text-slate-900">Website Dashboard</h1>
-          <p className="mt-1 text-sm text-slate-600">Manage website drafts, publish status, and edit with live preview.</p>
-          <button onClick={onCreate} type="button" className="mt-3 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white">Create Website</button>
+          <p className="mt-1 text-sm text-slate-600">
+            Manage website drafts, publish status, and edit with live preview.
+          </p>
+          <button
+            onClick={() => void onCreate()}
+            type="button"
+            className="mt-3 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white"
+          >
+            Create Website
+          </button>
           {message && <p className="mt-2 text-sm text-slate-600">{message}</p>}
         </header>
 
@@ -109,7 +168,9 @@ export function DashboardPage({ user, profile }: DashboardPageProps) {
           <div className="rounded-2xl bg-white p-4 shadow-sm">
             <h2 className="mb-3 text-lg font-semibold">Websites</h2>
             <div className="space-y-3">
-              {websites.length === 0 && <p className="text-sm text-slate-500">No websites yet. Create your first website.</p>}
+              {websites.length === 0 && (
+                <p className="text-sm text-slate-500">No websites yet. Create your first website.</p>
+              )}
               {websites.map((site) => (
                 <article key={site.id} className="rounded-xl border border-slate-200 p-3">
                   <div className="flex items-center gap-3">
@@ -120,10 +181,34 @@ export function DashboardPage({ user, profile }: DashboardPageProps) {
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <button type="button" onClick={() => onEdit(site)} className="rounded-md border px-3 py-1 text-xs">Edit</button>
-                    <button type="button" onClick={() => setActiveWebsite(site)} className="rounded-md border px-3 py-1 text-xs">Preview</button>
-                    <button type="button" onClick={() => void onDelete(site.id)} className="rounded-md border px-3 py-1 text-xs">Delete</button>
-                    <button type="button" onClick={() => void onPublish(site.id)} className="rounded-md bg-emerald-600 px-3 py-1 text-xs text-white">Publish</button>
+                    <button
+                      type="button"
+                      onClick={() => onEdit(site)}
+                      className="rounded-md border px-3 py-1 text-xs"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void setActiveWithTracking(site)}
+                      className="rounded-md border px-3 py-1 text-xs"
+                    >
+                      Preview
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void onDelete(site.id)}
+                      className="rounded-md border px-3 py-1 text-xs"
+                    >
+                      Delete
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void onPublish(site.id)}
+                      className="rounded-md bg-emerald-600 px-3 py-1 text-xs text-white"
+                    >
+                      Publish
+                    </button>
                   </div>
                 </article>
               ))}
@@ -135,27 +220,107 @@ export function DashboardPage({ user, profile }: DashboardPageProps) {
               <h2 className="text-lg font-semibold">Website Builder</h2>
               {activeWebsite ? (
                 <div className="mt-3 grid gap-3">
-                  <input value={draftContent.businessName} onChange={(e) => setDraftContent((p) => ({ ...p, businessName: e.target.value }))} placeholder="Business name" className="rounded-md border p-2 text-sm" />
-                  <input value={draftContent.tagline} onChange={(e) => setDraftContent((p) => ({ ...p, tagline: e.target.value }))} placeholder="Tagline" className="rounded-md border p-2 text-sm" />
-                  <textarea value={draftContent.about} onChange={(e) => setDraftContent((p) => ({ ...p, about: e.target.value }))} placeholder="About" className="rounded-md border p-2 text-sm" />
-                  <input value={draftContent.contactEmail} onChange={(e) => setDraftContent((p) => ({ ...p, contactEmail: e.target.value }))} placeholder="Contact email" className="rounded-md border p-2 text-sm" />
-                  <input value={draftContent.whatsapp} onChange={(e) => setDraftContent((p) => ({ ...p, whatsapp: e.target.value }))} placeholder="WhatsApp" className="rounded-md border p-2 text-sm" />
-                  <button type="button" onClick={() => void onSaveEdit()} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white">Save</button>
+                  <input
+                    value={draftContent.businessName}
+                    onChange={(event) =>
+                      setDraftContent((prev) => ({ ...prev, businessName: event.target.value }))
+                    }
+                    placeholder="Business name"
+                    className="rounded-md border p-2 text-sm"
+                  />
+                  <input
+                    value={draftContent.tagline}
+                    onChange={(event) =>
+                      setDraftContent((prev) => ({ ...prev, tagline: event.target.value }))
+                    }
+                    placeholder="Tagline"
+                    className="rounded-md border p-2 text-sm"
+                  />
+                  <textarea
+                    value={draftContent.about}
+                    onChange={(event) =>
+                      setDraftContent((prev) => ({ ...prev, about: event.target.value }))
+                    }
+                    placeholder="About"
+                    className="rounded-md border p-2 text-sm"
+                  />
+                  <input
+                    value={draftContent.contactEmail}
+                    onChange={(event) =>
+                      setDraftContent((prev) => ({ ...prev, contactEmail: event.target.value }))
+                    }
+                    placeholder="Contact email"
+                    className="rounded-md border p-2 text-sm"
+                  />
+                  <input
+                    value={draftContent.whatsapp}
+                    onChange={(event) =>
+                      setDraftContent((prev) => ({ ...prev, whatsapp: event.target.value }))
+                    }
+                    placeholder="WhatsApp"
+                    className="rounded-md border p-2 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void onSaveEdit()}
+                    className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white"
+                  >
+                    Save
+                  </button>
                 </div>
               ) : (
-                <p className="mt-2 text-sm text-slate-500">Click Edit on a website to load builder with saved config.</p>
+                <p className="mt-2 text-sm text-slate-500">
+                  Click Edit on a website to load builder with saved config.
+                </p>
               )}
             </section>
 
             <section className="rounded-2xl bg-white p-4 shadow-sm">
               <h2 className="mb-3 text-lg font-semibold">Live Preview</h2>
               {previewConfig ? (
-                <WebsiteLivePreview designConfig={previewConfig} content={previewContent} />
+                <WebsiteLivePreview
+                  designConfig={previewConfig}
+                  content={previewContent}
+                  onWhatsAppClick={() => void onWhatsAppClick()}
+                  onProductClick={() => void onProductClick()}
+                />
               ) : (
                 <p className="text-sm text-slate-500">No preview available yet.</p>
               )}
-              {previewWebsite && <p className="mt-2 text-xs text-slate-500">Latest: {previewWebsite.content.businessName || 'Untitled Website'}</p>}
             </section>
+          </div>
+        </section>
+
+        <section className="rounded-2xl bg-white p-4 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-900">Analytics</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Tracks page views, WhatsApp clicks, and product clicks per website.
+          </p>
+
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            {websites.map((site) => (
+              <article key={`analytics-${site.id}`} className="rounded-xl border border-slate-200 p-3">
+                <p className="mb-2 text-sm font-semibold text-slate-800">
+                  {site.content.businessName || 'Untitled Website'}
+                </p>
+                <div className="space-y-2">
+                  <ChartRow label="Page views" value={site.analytics.views} max={chartMax} />
+                  <ChartRow
+                    label="WhatsApp clicks"
+                    value={site.analytics.whatsappClicks}
+                    max={chartMax}
+                  />
+                  <ChartRow
+                    label="Product clicks"
+                    value={site.analytics.productClicks}
+                    max={chartMax}
+                  />
+                </div>
+              </article>
+            ))}
+            {websites.length === 0 && (
+              <p className="text-sm text-slate-500">No analytics yet. Create and preview a website first.</p>
+            )}
           </div>
         </section>
       </div>
