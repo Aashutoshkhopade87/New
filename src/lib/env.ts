@@ -34,4 +34,5 @@ export const firebaseEnv = {
 
 export const appEnv = {
   razorpayKeyId: getOptionalEnvValue('VITE_RAZORPAY_KEY_ID'),
+  enableDemoAuth: getOptionalEnvValue('VITE_ENABLE_DEMO_AUTH') === 'true',
 };

@@ -15,4 +15,6 @@ export type UserProfile = {
   trialEndsAt?: unknown;
   subscriptionStatus?: 'inactive' | 'active' | 'expired';
   paidUntil?: unknown;
+  plan?: 'trial' | 'pro';
+  maxWebsites?: number;
 };

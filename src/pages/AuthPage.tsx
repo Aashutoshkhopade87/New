@@ -13,6 +13,8 @@ import type { UserProfile } from '../types/template';
 import { TemplatePreviewPage } from './TemplatePreviewPage';
 import { DashboardPage } from './DashboardPage';
 import { applySeo } from '../lib/seo';
+import { appEnv } from '../lib/env';
+import { DEMO_UID, getDemoProfile } from '../lib/demoStore';
 
 const initialState: PhoneAuthState = {
   countryCode: '+91',
@@ -93,6 +95,14 @@ export function AuthPage() {
     }
   }
 
+
+  function handleDemoLogin() {
+    const demoUser = { uid: DEMO_UID, phoneNumber: '+919999999999' } as User;
+    setCurrentUser(demoUser);
+    setProfile(getDemoProfile());
+    setMessage({ type: 'success', text: 'Demo login active. You can test full flow with local demo data.' });
+  }
+
   async function handleOtpSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -132,6 +142,17 @@ export function AuthPage() {
     <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-violet-950 to-slate-900 px-4 py-8 md:px-6">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_20%,rgba(56,189,248,0.22),transparent_35%),radial-gradient(circle_at_90%_15%,rgba(168,85,247,0.22),transparent_35%),radial-gradient(circle_at_50%_80%,rgba(34,197,94,0.12),transparent_35%)]" />
       <div className="relative mx-auto flex w-full max-w-6xl flex-col items-stretch gap-6 md:flex-row md:items-center">
+
+        {appEnv.enableDemoAuth && (
+          <button
+            type="button"
+            onClick={handleDemoLogin}
+            className="rounded-xl border border-cyan-300/40 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/20"
+          >
+            Use Demo Login (Testing)
+          </button>
+        )}
+
         <PhoneAuthForm
           state={state}
           mode={mode}

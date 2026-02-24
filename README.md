@@ -65,3 +65,9 @@ npm run build
    ```bash
    firebase deploy --only hosting
    ```
+
+
+## Demo Login (Testing)
+- Set `VITE_ENABLE_DEMO_AUTH=true` in `.env` to show **Use Demo Login (Testing)** on auth screen.
+- Demo login uses local browser storage (no OTP needed) so you can test dashboard flows quickly.
+- Later, disable demo and continue with real Firebase Phone OTP flow.
