@@ -10,6 +10,7 @@ import {
 import type { User } from 'firebase/auth';
 import { firestoreDb } from '../lib/firebase';
 import type { UserProfile } from '../types/template';
+import type { DesignConfig } from '../types/design';
 
 type UpsertProfileInput = {
   user: User;
@@ -82,4 +83,23 @@ export async function saveTemplateSelection(uid: string, templateId: string): Pr
 
     return true;
   });
+}
+
+
+export async function saveDesignConfig(uid: string, designConfig: DesignConfig) {
+  const userDocRef = doc(firestoreDb, 'users', uid);
+  const snapshot = await getDoc(userDocRef);
+
+  if (!snapshot.exists()) {
+    throw new Error('User profile not found. Complete authentication first.');
+  }
+
+  await setDoc(
+    userDocRef,
+    {
+      designConfig,
+      designUpdatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
 }

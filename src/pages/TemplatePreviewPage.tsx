@@ -3,6 +3,7 @@ import type { User } from 'firebase/auth';
 import { templates } from '../lib/templates';
 import { TemplateCard } from '../components/TemplateCard';
 import { getUserProfile, saveTemplateSelection } from '../services/firestoreService';
+import { WebsiteGenerationPage } from './WebsiteGenerationPage';
 
 type TemplatePreviewPageProps = {
   user: User;
@@ -78,6 +79,8 @@ export function TemplatePreviewPage({ user }: TemplatePreviewPageProps) {
           ))}
         </div>
       </section>
+
+      {savedTemplateId && <WebsiteGenerationPage user={user} templateId={savedTemplateId} />}
 
       <div className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 md:px-6">
