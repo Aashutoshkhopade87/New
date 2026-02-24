@@ -15,21 +15,18 @@ export function WebsiteLivePreview({
   onProductClick,
 }: WebsiteLivePreviewProps) {
   return (
-    <div
-      className="overflow-hidden rounded-xl border border-slate-200"
-      style={{ backgroundColor: designConfig.palette.background }}
-    >
+    <div className="premium-card overflow-hidden">
       <div className="p-5" style={{ color: designConfig.palette.text }}>
         <section
-          className="rounded-lg p-4"
-          style={{ backgroundColor: designConfig.palette.primary, color: '#fff' }}
+          className="rounded-xl p-5 shadow-xl"
+          style={{ background: `linear-gradient(120deg, ${designConfig.palette.primary}, ${designConfig.palette.secondary})`, color: '#fff' }}
         >
-          <p className="text-xs uppercase">AI Hero • {designConfig.heroStyle}</p>
-          <h3 className="mt-2 text-xl font-bold">{content.businessName || 'Business Name'}</h3>
-          <p className="text-sm">{content.tagline || 'Your tagline appears here'}</p>
+          <p className="text-xs uppercase tracking-[0.18em]">AI Hero • {designConfig.heroStyle}</p>
+          <h3 className="mt-2 text-3xl font-black leading-tight">{content.businessName || 'Business Name'}</h3>
+          <p className="text-sm opacity-95">{content.tagline || 'Your tagline appears here'}</p>
         </section>
 
-        <div className="mt-4 space-y-2 text-sm">
+        <div className="mt-4 space-y-3 text-sm text-slate-100">
           <p>
             <strong>Social icons:</strong> Instagram • Facebook • YouTube
           </p>
@@ -44,7 +41,7 @@ export function WebsiteLivePreview({
                   key={product}
                   type="button"
                   onClick={onProductClick}
-                  className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100"
+                  className="rounded-lg border border-white/30 bg-white/10 px-2 py-1 text-xs text-white hover:bg-white/20"
                 >
                   {product}
                 </button>
@@ -66,7 +63,7 @@ export function WebsiteLivePreview({
             <button
               type="button"
               onClick={onWhatsAppClick}
-              className="font-medium text-emerald-700 underline"
+              className="font-semibold text-cyan-200 underline"
             >
               {content.whatsapp || '+91 00000 00000'}
             </button>

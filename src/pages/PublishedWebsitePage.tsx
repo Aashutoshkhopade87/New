@@ -22,18 +22,18 @@ export function PublishedWebsitePage({ subdomain }: PublishedWebsitePageProps) {
   }, [subdomain]);
 
   if (loading) {
-    return <main className="min-h-screen p-6">Loading published website...</main>;
+    return <main className="min-h-screen bg-slate-950 p-6 text-slate-100">Loading published website...</main>;
   }
 
   if (!website) {
-    return <main className="min-h-screen p-6">Published website not found.</main>;
+    return <main className="min-h-screen bg-slate-950 p-6 text-slate-100">Published website not found.</main>;
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 p-4 md:p-8">
+    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-violet-950 to-slate-900 p-4 md:p-8">
       <div className="mx-auto max-w-5xl">
-        <div className="mb-4 rounded-lg bg-white p-4 text-sm text-slate-600 shadow-sm">
-          Live site: <span className="font-semibold">{website.subdomain}.tezweb.com</span>
+        <div className="glass-card mb-4 p-4 text-sm text-slate-200">
+          Live site: <span className="font-semibold text-cyan-200">{website.subdomain}.tezweb.com</span>
         </div>
         <WebsiteLivePreview designConfig={website.designConfig} content={website.content} />
       </div>

@@ -120,8 +120,9 @@ export function AuthPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-8 md:px-6">
-      <div className="mx-auto flex w-full max-w-5xl flex-col items-stretch gap-5 md:flex-row md:items-start">
+    <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-violet-950 to-slate-900 px-4 py-8 md:px-6">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_20%,rgba(56,189,248,0.22),transparent_35%),radial-gradient(circle_at_90%_15%,rgba(168,85,247,0.22),transparent_35%),radial-gradient(circle_at_50%_80%,rgba(34,197,94,0.12),transparent_35%)]" />
+      <div className="relative mx-auto flex w-full max-w-6xl flex-col items-stretch gap-6 md:flex-row md:items-center">
         <PhoneAuthForm
           state={state}
           mode={mode}
@@ -134,6 +135,14 @@ export function AuthPage() {
           onSubmitOtp={handleOtpSubmit}
           onBack={() => setStep('request-otp')}
         />
+
+        <section className="premium-card animate-fade-up p-6 md:flex-1 md:p-8">
+          <p className="text-xs uppercase tracking-[0.22em] text-cyan-200">Modern TezWeb UI</p>
+          <h2 className="gradient-text mt-3 text-4xl font-black leading-tight md:text-6xl">Bold, fast, premium storefronts.</h2>
+          <p className="mt-4 max-w-xl text-sm text-slate-200 md:text-base">
+            Build responsive sites with beautiful gradients, glass cards, and smooth interactions. Publish faster and keep full control from one dashboard.
+          </p>
+        </section>
       </div>
     </main>
   );

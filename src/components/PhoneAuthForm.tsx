@@ -30,16 +30,16 @@ export function PhoneAuthForm({
   const isOtpStep = step === 'verify-otp';
 
   return (
-    <section className="w-full max-w-md rounded-2xl bg-white p-6 shadow-sm">
-      <h1 className="text-2xl font-semibold text-slate-900">TezWeb Starter</h1>
-      <p className="mt-2 text-sm text-slate-600">Firebase Phone OTP with Firestore profile onboarding.</p>
+    <section className="glass-card animate-fade-up w-full max-w-md p-6 md:p-7">
+      <h1 className="text-4xl font-black leading-tight text-white md:text-5xl">Launch with TezWeb</h1>
+      <p className="mt-3 text-sm text-slate-200/90">Phone OTP auth, premium templates, and instant website publishing.</p>
 
-      <div className="mt-5 grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1">
+      <div className="mt-5 grid grid-cols-2 gap-2 rounded-xl bg-black/20 p-1">
         <button
           type="button"
           onClick={() => onModeChange('login')}
-          className={`rounded-md px-3 py-2 text-sm font-medium transition ${
-            mode === 'login' ? 'bg-white text-slate-900 shadow' : 'text-slate-600'
+          className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
+            mode === 'login' ? 'bg-white text-slate-900 shadow' : 'text-slate-200 hover:bg-white/10'
           }`}
         >
           Login
@@ -47,8 +47,8 @@ export function PhoneAuthForm({
         <button
           type="button"
           onClick={() => onModeChange('signup')}
-          className={`rounded-md px-3 py-2 text-sm font-medium transition ${
-            mode === 'signup' ? 'bg-white text-slate-900 shadow' : 'text-slate-600'
+          className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
+            mode === 'signup' ? 'bg-white text-slate-900 shadow' : 'text-slate-200 hover:bg-white/10'
           }`}
         >
           Signup
@@ -57,8 +57,10 @@ export function PhoneAuthForm({
 
       {message && (
         <p
-          className={`mt-4 rounded-md px-3 py-2 text-sm ${
-            message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+          className={`mt-4 rounded-lg px-3 py-2 text-sm ${
+            message.type === 'success'
+              ? 'bg-emerald-500/20 text-emerald-200'
+              : 'bg-rose-500/20 text-rose-200'
           }`}
         >
           {message.text}
@@ -68,13 +70,13 @@ export function PhoneAuthForm({
       {!isOtpStep ? (
         <form className="mt-5 space-y-4" onSubmit={onSubmitPhone}>
           {mode === 'signup' && (
-            <label className="block text-sm font-medium text-slate-700">
+            <label className="block text-sm font-medium text-slate-100">
               Full Name
               <input
                 value={state.fullName}
                 onChange={(event) => onChange({ fullName: event.target.value })}
                 placeholder="John Doe"
-                className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500"
+                className="mt-2 w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-white placeholder:text-slate-300 outline-none focus:border-cyan-300"
                 required
               />
             </label>
@@ -87,14 +89,14 @@ export function PhoneAuthForm({
             onSelect={(entry) => onChange({ countryCode: entry.code })}
           />
 
-          <label className="block text-sm font-medium text-slate-700">
+          <label className="block text-sm font-medium text-slate-100">
             Phone Number
             <input
               value={state.phoneNumber}
               onChange={(event) => onChange({ phoneNumber: event.target.value })}
               type="tel"
               placeholder="9876543210"
-              className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500"
+              className="mt-2 w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-white placeholder:text-slate-300 outline-none focus:border-cyan-300"
               required
             />
           </label>
@@ -104,21 +106,21 @@ export function PhoneAuthForm({
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+            className="w-full rounded-xl bg-gradient-to-r from-cyan-500 to-violet-500 px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? 'Sending OTP...' : mode === 'login' ? 'Login with OTP' : 'Signup with OTP'}
           </button>
         </form>
       ) : (
         <form className="mt-5 space-y-4" onSubmit={onSubmitOtp}>
-          <label className="block text-sm font-medium text-slate-700">
+          <label className="block text-sm font-medium text-slate-100">
             Enter OTP
             <input
               value={state.verificationCode}
               onChange={(event) => onChange({ verificationCode: event.target.value.replace(/\D/g, '').slice(0, 6) })}
               inputMode="numeric"
               placeholder="123456"
-              className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-center text-lg tracking-[0.4em] outline-none focus:border-blue-500"
+              className="mt-2 w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-center text-lg tracking-[0.4em] text-white placeholder:text-slate-300 outline-none focus:border-cyan-300"
               required
             />
           </label>
@@ -127,14 +129,14 @@ export function PhoneAuthForm({
             <button
               type="button"
               onClick={onBack}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+              className="rounded-xl border border-white/30 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
             >
               Back
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+              className="rounded-xl bg-gradient-to-r from-cyan-500 to-violet-500 px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? 'Verifying...' : 'Verify OTP'}
             </button>

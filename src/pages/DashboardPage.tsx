@@ -72,12 +72,12 @@ function ChartRow({ label, value, max }: { label: string; value: number; max: nu
 
   return (
     <div className="space-y-1">
-      <div className="flex items-center justify-between text-xs text-slate-600">
+      <div className="flex items-center justify-between text-xs text-slate-300">
         <span>{label}</span>
         <span>{value}</span>
       </div>
-      <div className="h-2 rounded bg-slate-200">
-        <div className="h-2 rounded bg-blue-500" style={{ width: `${width}%` }} />
+      <div className="h-2 rounded bg-white/10">
+        <div className="h-2 rounded bg-gradient-to-r from-cyan-400 to-violet-400" style={{ width: `${width}%` }} />
       </div>
     </div>
   );
@@ -190,20 +190,14 @@ export function DashboardPage({ user, profile }: DashboardPageProps) {
   }
 
   async function onWhatsAppClick() {
-    if (!activeWebsite) {
-      return;
-    }
-
+    if (!activeWebsite) return;
     const updated = await trackWhatsAppClick(user.uid, activeWebsite.id);
     setWebsites((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
     setActiveWebsite(updated);
   }
 
   async function onProductClick() {
-    if (!activeWebsite) {
-      return;
-    }
-
+    if (!activeWebsite) return;
     const updated = await trackProductClick(user.uid, activeWebsite.id);
     setWebsites((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
     setActiveWebsite(updated);
@@ -219,89 +213,42 @@ export function DashboardPage({ user, profile }: DashboardPageProps) {
   }, [websites]);
 
   return (
-    <main className="min-h-screen bg-slate-100 p-4 md:p-6">
+    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-violet-950 to-slate-900 p-4 md:p-6">
       <div className="mx-auto max-w-7xl space-y-5">
-        <header className="rounded-2xl bg-white p-5 shadow-sm">
-          <h1 className="text-2xl font-semibold text-slate-900">Website Dashboard</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Manage website drafts, publish status, and edit with live preview.
-          </p>
-          <button
-            onClick={() => void onCreate()}
-            type="button"
-            className="mt-3 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white"
-          >
-            Create Website
-          </button>
-          {message && <p className="mt-2 text-sm text-slate-600">{message}</p>}
+        <header className="glass-card animate-fade-up p-5">
+          <h1 className="gradient-text text-4xl font-black md:text-5xl">TezWeb Dashboard</h1>
+          <p className="mt-2 text-sm text-slate-200">Manage websites, publishing, and analytics with a premium workflow.</p>
+          <button onClick={() => void onCreate()} type="button" className="mt-4 rounded-xl bg-gradient-to-r from-cyan-500 to-violet-500 px-4 py-2 text-sm font-semibold text-white">Create Website</button>
+          {message && <p className="mt-2 text-sm text-slate-200">{message}</p>}
         </header>
 
-        <section className="rounded-2xl bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">Subscription</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            Plan: ₹199/month after 7-day trial.
-          </p>
-          <p className="mt-1 text-sm text-slate-600">
-            {publishAccess.canPublish ? publishAccess.reason || 'Publishing enabled.' : publishAccess.reason}
-          </p>
-          <button
-            type="button"
-            onClick={() => void handleSubscribe()}
-            className="mt-3 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white"
-          >
-            Subscribe ₹199/month
-          </button>
+        <section className="glass-card p-5">
+          <h2 className="text-lg font-semibold text-white">Subscription</h2>
+          <p className="mt-1 text-sm text-slate-300">Plan: ₹199/month after 7-day trial.</p>
+          <p className="mt-1 text-sm text-slate-300">{publishAccess.canPublish ? publishAccess.reason || 'Publishing enabled.' : publishAccess.reason}</p>
+          <button type="button" onClick={() => void handleSubscribe()} className="mt-3 rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-4 py-2 text-sm font-semibold text-white">Subscribe ₹199/month</button>
         </section>
 
         <section className="grid gap-5 lg:grid-cols-2">
-          <div className="rounded-2xl bg-white p-4 shadow-sm">
-            <h2 className="mb-3 text-lg font-semibold">Websites</h2>
+          <div className="glass-card p-4">
+            <h2 className="mb-3 text-lg font-semibold text-white">Websites</h2>
             <div className="space-y-3">
-              {websites.length === 0 && (
-                <p className="text-sm text-slate-500">No websites yet. Create your first website.</p>
-              )}
+              {websites.length === 0 && <p className="text-sm text-slate-300">No websites yet. Create your first website.</p>}
               {websites.map((site) => (
-                <article key={site.id} className="rounded-xl border border-slate-200 p-3">
+                <article key={site.id} className="premium-card p-3">
                   <div className="flex items-center gap-3">
-                    <img src={site.thumbnailUrl} alt="thumbnail" className="h-16 w-24 rounded-md object-cover" />
+                    <img src={site.thumbnailUrl} alt="thumbnail" className="h-16 w-24 rounded-lg object-cover" />
                     <div className="flex-1">
-                      <p className="text-sm font-semibold">{site.content.businessName || 'Untitled Website'}</p>
-                      <p className="text-xs text-slate-500">Status: {site.status}</p>
-                      {site.subdomain && (
-                        <p className="text-xs text-slate-500">{site.subdomain}.tezweb.com</p>
-                      )}
+                      <p className="text-sm font-semibold text-white">{site.content.businessName || 'Untitled Website'}</p>
+                      <p className="text-xs text-slate-300">Status: {site.status}</p>
+                      {site.subdomain && <p className="text-xs text-cyan-200">{site.subdomain}.tezweb.com</p>}
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => onEdit(site)}
-                      className="rounded-md border px-3 py-1 text-xs"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void setActiveWithTracking(site)}
-                      className="rounded-md border px-3 py-1 text-xs"
-                    >
-                      Preview
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void onDelete(site.id)}
-                      className="rounded-md border px-3 py-1 text-xs"
-                    >
-                      Delete
-                    </button>
-                    <button
-                      type="button"
-                      disabled={site.status !== 'published' && !publishAccess.canPublish}
-                      onClick={() => void onTogglePublish(site)}
-                      className={`rounded-md px-3 py-1 text-xs text-white ${
-                        site.status === 'published' ? 'bg-amber-600' : 'bg-emerald-600'
-                      } disabled:cursor-not-allowed disabled:bg-slate-400`}
-                    >
+                    <button type="button" onClick={() => onEdit(site)} className="rounded-lg border border-white/20 px-3 py-1 text-xs text-white hover:bg-white/10">Edit</button>
+                    <button type="button" onClick={() => void setActiveWithTracking(site)} className="rounded-lg border border-white/20 px-3 py-1 text-xs text-white hover:bg-white/10">Preview</button>
+                    <button type="button" onClick={() => void onDelete(site.id)} className="rounded-lg border border-white/20 px-3 py-1 text-xs text-white hover:bg-white/10">Delete</button>
+                    <button type="button" disabled={site.status !== 'published' && !publishAccess.canPublish} onClick={() => void onTogglePublish(site)} className={`rounded-lg px-3 py-1 text-xs font-semibold text-white ${site.status === 'published' ? 'bg-amber-600' : 'bg-emerald-600'} disabled:cursor-not-allowed disabled:bg-slate-500`}>
                       {site.status === 'published' ? 'Unpublish' : 'Publish'}
                     </button>
                   </div>
@@ -311,111 +258,49 @@ export function DashboardPage({ user, profile }: DashboardPageProps) {
           </div>
 
           <div className="space-y-4">
-            <section className="rounded-2xl bg-white p-4 shadow-sm">
-              <h2 className="text-lg font-semibold">Website Builder</h2>
+            <section className="glass-card p-4">
+              <h2 className="text-lg font-semibold text-white">Website Builder</h2>
               {activeWebsite ? (
                 <div className="mt-3 grid gap-3">
-                  <input
-                    value={draftContent.businessName}
-                    onChange={(event) =>
-                      setDraftContent((prev) => ({ ...prev, businessName: event.target.value }))
-                    }
-                    placeholder="Business name"
-                    className="rounded-md border p-2 text-sm"
-                  />
-                  <input
-                    value={draftContent.tagline}
-                    onChange={(event) =>
-                      setDraftContent((prev) => ({ ...prev, tagline: event.target.value }))
-                    }
-                    placeholder="Tagline"
-                    className="rounded-md border p-2 text-sm"
-                  />
-                  <textarea
-                    value={draftContent.about}
-                    onChange={(event) =>
-                      setDraftContent((prev) => ({ ...prev, about: event.target.value }))
-                    }
-                    placeholder="About"
-                    className="rounded-md border p-2 text-sm"
-                  />
-                  <input
-                    value={draftContent.contactEmail}
-                    onChange={(event) =>
-                      setDraftContent((prev) => ({ ...prev, contactEmail: event.target.value }))
-                    }
-                    placeholder="Contact email"
-                    className="rounded-md border p-2 text-sm"
-                  />
-                  <input
-                    value={draftContent.whatsapp}
-                    onChange={(event) =>
-                      setDraftContent((prev) => ({ ...prev, whatsapp: event.target.value }))
-                    }
-                    placeholder="WhatsApp"
-                    className="rounded-md border p-2 text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => void onSaveEdit()}
-                    className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white"
-                  >
-                    Save
-                  </button>
+                  <input value={draftContent.businessName} onChange={(event) => setDraftContent((prev) => ({ ...prev, businessName: event.target.value }))} placeholder="Business name" className="rounded-xl border border-white/20 bg-white/10 p-2 text-sm text-white placeholder:text-slate-300" />
+                  <input value={draftContent.tagline} onChange={(event) => setDraftContent((prev) => ({ ...prev, tagline: event.target.value }))} placeholder="Tagline" className="rounded-xl border border-white/20 bg-white/10 p-2 text-sm text-white placeholder:text-slate-300" />
+                  <textarea value={draftContent.about} onChange={(event) => setDraftContent((prev) => ({ ...prev, about: event.target.value }))} placeholder="About" className="rounded-xl border border-white/20 bg-white/10 p-2 text-sm text-white placeholder:text-slate-300" />
+                  <input value={draftContent.contactEmail} onChange={(event) => setDraftContent((prev) => ({ ...prev, contactEmail: event.target.value }))} placeholder="Contact email" className="rounded-xl border border-white/20 bg-white/10 p-2 text-sm text-white placeholder:text-slate-300" />
+                  <input value={draftContent.whatsapp} onChange={(event) => setDraftContent((prev) => ({ ...prev, whatsapp: event.target.value }))} placeholder="WhatsApp" className="rounded-xl border border-white/20 bg-white/10 p-2 text-sm text-white placeholder:text-slate-300" />
+                  <button type="button" onClick={() => void onSaveEdit()} className="rounded-xl bg-gradient-to-r from-cyan-500 to-violet-500 px-4 py-2 text-sm font-semibold text-white">Save</button>
                 </div>
               ) : (
-                <p className="mt-2 text-sm text-slate-500">
-                  Click Edit on a website to load builder with saved config.
-                </p>
+                <p className="mt-2 text-sm text-slate-300">Click Edit on a website to load builder with saved config.</p>
               )}
             </section>
 
-            <section className="rounded-2xl bg-white p-4 shadow-sm">
-              <h2 className="mb-3 text-lg font-semibold">Live Preview</h2>
+            <section className="glass-card p-4">
+              <h2 className="mb-3 text-lg font-semibold text-white">Live Preview</h2>
               {previewConfig ? (
-                <WebsiteLivePreview
-                  designConfig={previewConfig}
-                  content={previewContent}
-                  onWhatsAppClick={() => void onWhatsAppClick()}
-                  onProductClick={() => void onProductClick()}
-                />
+                <WebsiteLivePreview designConfig={previewConfig} content={previewContent} onWhatsAppClick={() => void onWhatsAppClick()} onProductClick={() => void onProductClick()} />
               ) : (
-                <p className="text-sm text-slate-500">No preview available yet.</p>
+                <p className="text-sm text-slate-300">No preview available yet.</p>
               )}
             </section>
           </div>
         </section>
 
-        <section className="rounded-2xl bg-white p-4 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">Analytics</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            Tracks page views, WhatsApp clicks, and product clicks per website.
-          </p>
+        <section className="glass-card p-4">
+          <h2 className="text-lg font-semibold text-white">Analytics</h2>
+          <p className="mt-1 text-sm text-slate-300">Tracks page views, WhatsApp clicks, and product clicks per website.</p>
 
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             {websites.map((site) => (
-              <article key={`analytics-${site.id}`} className="rounded-xl border border-slate-200 p-3">
-                <p className="mb-2 text-sm font-semibold text-slate-800">
-                  {site.content.businessName || 'Untitled Website'}
-                </p>
+              <article key={`analytics-${site.id}`} className="premium-card p-3">
+                <p className="mb-2 text-sm font-semibold text-white">{site.content.businessName || 'Untitled Website'}</p>
                 <div className="space-y-2">
                   <ChartRow label="Page views" value={site.analytics.views} max={chartMax} />
-                  <ChartRow
-                    label="WhatsApp clicks"
-                    value={site.analytics.whatsappClicks}
-                    max={chartMax}
-                  />
-                  <ChartRow
-                    label="Product clicks"
-                    value={site.analytics.productClicks}
-                    max={chartMax}
-                  />
+                  <ChartRow label="WhatsApp clicks" value={site.analytics.whatsappClicks} max={chartMax} />
+                  <ChartRow label="Product clicks" value={site.analytics.productClicks} max={chartMax} />
                 </div>
               </article>
             ))}
-            {websites.length === 0 && (
-              <p className="text-sm text-slate-500">No analytics yet. Create and preview a website first.</p>
-            )}
+            {websites.length === 0 && <p className="text-sm text-slate-300">No analytics yet. Create and preview a website first.</p>}
           </div>
         </section>
       </div>
