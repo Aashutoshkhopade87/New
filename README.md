@@ -1,11 +1,11 @@
 # TezWeb Starter (React + Vite + TypeScript + Tailwind + Firebase)
 
-A fresh starter template with:
+Clean starter project with:
 - React + Vite + TypeScript
 - Tailwind CSS
-- Firebase setup with `.env`
-- Firebase Phone Auth (with country code selector)
-- Firestore integration
+- Firebase Auth (Phone OTP + reCAPTCHA)
+- Searchable country selector (flags + country codes)
+- Firestore user profile setup with 7-day trial metadata
 
 ## Folder Structure
 
@@ -32,33 +32,40 @@ A fresh starter template with:
 ├── .env.example
 ├── index.html
 ├── package.json
-├── postcss.config.js
-├── tailwind.config.js
-├── tsconfig.app.json
-├── tsconfig.json
-├── tsconfig.node.json
 └── vite.config.ts
 ```
 
-## Local Setup
+## Firestore user document
 
-1. Install dependencies:
+On first signup/login, profile is created at `users/{uid}`:
+
+```ts
+{
+  uid,
+  phone,
+  createdAt,
+  trialEndsAt, // createdAt + 7 days
+  plan: "trial",
+  status: "active",
+  maxWebsites: 2
+}
+```
+
+## Local setup
+
+1. Install dependencies
    ```bash
    npm install
    ```
-2. Add Firebase env values:
+2. Copy env template
    ```bash
    cp .env.example .env
    ```
-3. Fill `.env` with your Firebase project credentials.
+3. Fill `.env` with Firebase values.
 4. Enable in Firebase Console:
-   - Authentication > Sign-in method > **Phone**
+   - Authentication > Sign-in method > Phone
    - Firestore Database
-5. Run development server:
+5. Run the app:
    ```bash
    npm run dev
    ```
-
-## Notes
-- Phone Auth uses Firebase reCAPTCHA in the `#firebase-recaptcha` container.
-- On successful login, user profile is upserted in Firestore at `users/{uid}`.
