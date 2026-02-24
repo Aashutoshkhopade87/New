@@ -11,6 +11,7 @@ import {
   trackPageView,
   trackProductClick,
   trackWhatsAppClick,
+  unpublishWebsite,
   updateWebsite,
 } from '../services/firestoreService';
 import { WebsiteLivePreview } from '../components/WebsiteLivePreview';
@@ -112,9 +113,16 @@ export function DashboardPage({ user, profile }: DashboardPageProps) {
     }
   }
 
-  async function onPublish(id: string) {
-    const updated = await publishWebsite(user.uid, id);
-    setWebsites((prev) => prev.map((item) => (item.id === id ? updated : item)));
+  async function onTogglePublish(site: Website) {
+    const updated =
+      site.status === 'published'
+        ? await unpublishWebsite(user.uid, site.id)
+        : await publishWebsite(user.uid, site.id, site.content.businessName || 'shop');
+
+    setWebsites((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+    if (activeWebsite?.id === updated.id) {
+      setActiveWebsite(updated);
+    }
   }
 
   async function onWhatsAppClick() {
@@ -178,6 +186,9 @@ export function DashboardPage({ user, profile }: DashboardPageProps) {
                     <div className="flex-1">
                       <p className="text-sm font-semibold">{site.content.businessName || 'Untitled Website'}</p>
                       <p className="text-xs text-slate-500">Status: {site.status}</p>
+                      {site.subdomain && (
+                        <p className="text-xs text-slate-500">{site.subdomain}.tezweb.com</p>
+                      )}
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -204,10 +215,12 @@ export function DashboardPage({ user, profile }: DashboardPageProps) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => void onPublish(site.id)}
-                      className="rounded-md bg-emerald-600 px-3 py-1 text-xs text-white"
+                      onClick={() => void onTogglePublish(site)}
+                      className={`rounded-md px-3 py-1 text-xs text-white ${
+                        site.status === 'published' ? 'bg-amber-600' : 'bg-emerald-600'
+                      }`}
                     >
-                      Publish
+                      {site.status === 'published' ? 'Unpublish' : 'Publish'}
                     </button>
                   </div>
                 </article>

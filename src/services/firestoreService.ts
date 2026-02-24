@@ -31,6 +31,11 @@ type CreateWebsiteInput = {
   content: WebsiteContent;
 };
 
+type PublishedSiteRecord = {
+  ownerUid: string;
+  websiteId: string;
+};
+
 export async function upsertUserProfile({ user, fullName }: UpsertProfileInput) {
   const userDocRef = doc(firestoreDb, 'users', user.uid);
   const userDoc = await getDoc(userDocRef);
@@ -127,6 +132,7 @@ function mapWebsite(id: string, data: DocumentData): Website {
     templateId: data.templateId,
     thumbnailUrl: data.thumbnailUrl,
     status: data.status,
+    subdomain: data.subdomain,
     designConfig: data.designConfig,
     content: data.content,
     analytics: {
@@ -135,6 +141,15 @@ function mapWebsite(id: string, data: DocumentData): Website {
       productClicks: data.analytics?.productClicks ?? 0,
     },
   } as Website;
+}
+
+function normalizeSubdomain(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 40);
 }
 
 export async function listWebsites(uid: string): Promise<Website[]> {
@@ -179,19 +194,113 @@ export async function updateWebsite(
 
 export async function deleteWebsite(uid: string, websiteId: string) {
   const websiteRef = doc(firestoreDb, 'users', uid, 'websites', websiteId);
+  const snapshot = await getDoc(websiteRef);
+  const subdomain = snapshot.data()?.subdomain as string | undefined;
+
+  if (subdomain) {
+    await deleteDoc(doc(firestoreDb, 'publishedSites', subdomain));
+  }
+
   await deleteDoc(websiteRef);
 }
 
-export async function publishWebsite(uid: string, websiteId: string): Promise<Website> {
+export async function publishWebsite(uid: string, websiteId: string, shopName: string): Promise<Website> {
   const websiteRef = doc(firestoreDb, 'users', uid, 'websites', websiteId);
-  await updateDoc(websiteRef, {
-    status: 'published',
-    publishedAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+
+  await runTransaction(firestoreDb, async (transaction) => {
+    const siteSnapshot = await transaction.get(websiteRef);
+    if (!siteSnapshot.exists()) {
+      throw new Error('Website not found.');
+    }
+
+    const existing = siteSnapshot.data().subdomain as string | undefined;
+    const base = normalizeSubdomain(shopName || 'shop');
+    if (!base) {
+      throw new Error('Invalid shop name for subdomain.');
+    }
+
+    let chosen = existing ?? base;
+    let index = 0;
+
+    while (true) {
+      const candidate = index === 0 ? chosen : `${base}-${index}`;
+      const publishedRef = doc(firestoreDb, 'publishedSites', candidate);
+      const publishedSnapshot = await transaction.get(publishedRef);
+
+      if (!publishedSnapshot.exists()) {
+        chosen = candidate;
+        transaction.set(publishedRef, {
+          ownerUid: uid,
+          websiteId,
+          updatedAt: serverTimestamp(),
+        } satisfies PublishedSiteRecord & { updatedAt: unknown });
+        break;
+      }
+
+      const data = publishedSnapshot.data() as PublishedSiteRecord;
+      if (data.ownerUid === uid && data.websiteId === websiteId) {
+        chosen = candidate;
+        break;
+      }
+
+      index += 1;
+      if (index > 50) {
+        throw new Error('Could not allocate a unique subdomain.');
+      }
+    }
+
+    transaction.update(websiteRef, {
+      status: 'published',
+      subdomain: chosen,
+      publishedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
   });
 
   const snapshot = await getDoc(websiteRef);
   return mapWebsite(snapshot.id, snapshot.data() as DocumentData);
+}
+
+export async function unpublishWebsite(uid: string, websiteId: string): Promise<Website> {
+  const websiteRef = doc(firestoreDb, 'users', uid, 'websites', websiteId);
+
+  await runTransaction(firestoreDb, async (transaction) => {
+    const siteSnapshot = await transaction.get(websiteRef);
+    if (!siteSnapshot.exists()) {
+      throw new Error('Website not found.');
+    }
+
+    const subdomain = siteSnapshot.data().subdomain as string | undefined;
+    if (subdomain) {
+      transaction.delete(doc(firestoreDb, 'publishedSites', subdomain));
+    }
+
+    transaction.update(websiteRef, {
+      status: 'draft',
+      updatedAt: serverTimestamp(),
+    });
+  });
+
+  const snapshot = await getDoc(websiteRef);
+  return mapWebsite(snapshot.id, snapshot.data() as DocumentData);
+}
+
+export async function resolvePublishedWebsite(subdomain: string): Promise<Website | null> {
+  const mappingRef = doc(firestoreDb, 'publishedSites', normalizeSubdomain(subdomain));
+  const mappingSnapshot = await getDoc(mappingRef);
+  if (!mappingSnapshot.exists()) {
+    return null;
+  }
+
+  const mappingData = mappingSnapshot.data() as PublishedSiteRecord;
+  const websiteRef = doc(firestoreDb, 'users', mappingData.ownerUid, 'websites', mappingData.websiteId);
+  const websiteSnapshot = await getDoc(websiteRef);
+  if (!websiteSnapshot.exists()) {
+    return null;
+  }
+
+  const website = mapWebsite(websiteSnapshot.id, websiteSnapshot.data());
+  return website.status === 'published' ? website : null;
 }
 
 export async function trackPageView(uid: string, websiteId: string): Promise<Website> {

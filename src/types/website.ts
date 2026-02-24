@@ -22,6 +22,7 @@ export type Website = {
   templateId: string;
   thumbnailUrl: string;
   status: WebsiteStatus;
+  subdomain?: string;
   designConfig: DesignConfig;
   content: WebsiteContent;
   analytics: WebsiteAnalytics;
