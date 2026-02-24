@@ -1,3 +1,4 @@
+import { applySeo } from '../lib/seo';
 import { useEffect, useMemo, useState } from 'react';
 import type { User } from 'firebase/auth';
 import { templates } from '../lib/templates';
@@ -11,6 +12,15 @@ type TemplatePreviewPageProps = {
 };
 
 export function TemplatePreviewPage({ user, onTemplateSaved }: TemplatePreviewPageProps) {
+  useEffect(() => {
+    applySeo({
+      title: 'Choose a Template | TezWeb',
+      description: 'Pick a modern template before generating your website.',
+      url: 'https://tezweb.com/dashboard',
+      robots: 'noindex,nofollow',
+    });
+  }, []);
+
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [savedTemplateId, setSavedTemplateId] = useState<string>('');
   const [loading, setLoading] = useState(false);

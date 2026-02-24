@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { WebsiteLivePreview } from '../components/WebsiteLivePreview';
 import { resolvePublishedWebsite } from '../services/firestoreService';
+import { applySeo } from '../lib/seo';
 import type { Website } from '../types/website';
 
 type PublishedWebsitePageProps = {
@@ -20,6 +21,25 @@ export function PublishedWebsitePage({ subdomain }: PublishedWebsitePageProps) {
 
     void loadPublishedSite();
   }, [subdomain]);
+
+
+  useEffect(() => {
+    if (!website) {
+      return;
+    }
+
+    const businessName = website.content.businessName || 'TezWeb Website';
+    const title = `${businessName} | ${website.subdomain}.tezweb.com`;
+    const description = website.content.tagline || 'Published with TezWeb';
+
+    applySeo({
+      title,
+      description,
+      url: `https://${website.subdomain}.tezweb.com`,
+      image: website.thumbnailUrl,
+      robots: 'index,follow',
+    });
+  }, [website]);
 
   if (loading) {
     return <main className="min-h-screen bg-slate-950 p-6 text-slate-100">Loading published website...</main>;

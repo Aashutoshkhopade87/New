@@ -1,3 +1,4 @@
+import { applySeo } from '../lib/seo';
 import { useEffect, useMemo, useState } from 'react';
 import type { User } from 'firebase/auth';
 import type { DesignConfig } from '../types/design';
@@ -92,6 +93,15 @@ export function DashboardPage({ user, profile }: DashboardPageProps) {
 
   const designConfig = profileState?.designConfig;
   const publishAccess = useMemo(() => getPublishAccess(profileState), [profileState]);
+
+  useEffect(() => {
+    applySeo({
+      title: 'TezWeb Dashboard',
+      description: 'Manage websites, analytics, publishing, and subscription.',
+      url: 'https://tezweb.com/dashboard',
+      robots: 'noindex,nofollow',
+    });
+  }, []);
 
   useEffect(() => {
     async function loadDashboardData() {

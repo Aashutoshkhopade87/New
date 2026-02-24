@@ -12,6 +12,7 @@ import { getUserProfile, upsertUserProfile } from '../services/firestoreService'
 import type { UserProfile } from '../types/template';
 import { TemplatePreviewPage } from './TemplatePreviewPage';
 import { DashboardPage } from './DashboardPage';
+import { applySeo } from '../lib/seo';
 
 const initialState: PhoneAuthState = {
   countryCode: '+91',
@@ -34,6 +35,14 @@ export function AuthPage() {
   useEffect(() => {
     const unsubscribe = subscribeToAuthChanges(setCurrentUser);
     return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    applySeo({
+      title: 'TezWeb - Build and Publish Your Business Website',
+      description: 'Create, style, publish, and manage business websites with TezWeb dashboard.',
+      url: 'https://tezweb.com/',
+    });
   }, []);
 
   async function refreshProfile(user: User) {

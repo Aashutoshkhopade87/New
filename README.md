@@ -1,72 +1,67 @@
 # TezWeb Starter (React + Vite + TypeScript + Tailwind + Firebase)
 
-Starter includes:
-- Firebase Phone OTP auth
-- Template selection lock
-- Seeded website generation config
-- Dashboard with website CRUD + publish status
-- Website builder with live preview
-- Analytics tracking + charts
-- Publish / unpublish with subdomain mapping
-- Paid plan system (trial + Razorpay)
+TezWeb includes:
+- Phone OTP auth (Firebase)
+- Template selection + website generation
+- Dashboard with publish/unpublish
+- Subscription + trial logic
+- Dynamic SEO meta tags + OpenGraph
+- Sitemap + robots.txt
+- Vercel / Firebase Hosting ready configs
 
-## Trial + Subscription
-- 7-day free trial (`trialEndsAt` stored in Firestore user profile)
-- After trial expiry:
-  - all websites are auto-unpublished (`status: draft`)
-  - publish action is disabled in dashboard
-- Paid subscription: **₹199/month**
-- Razorpay checkout is integrated (requires `VITE_RAZORPAY_KEY_ID`)
-- On payment success:
-  - `subscriptionStatus: "active"`
-  - `paidUntil: now + 30 days`
+## SEO Features
+- Dynamic meta tags by page via `applySeo()`.
+- OpenGraph + Twitter tags auto-updated.
+- Canonical URL updates per page.
+- Static SEO files:
+  - `public/sitemap.xml`
+  - `public/robots.txt`
 
-## Publish system
-When a website is published:
-- Subdomain is assigned as `{shopName}.tezweb.com` (with conflict-safe suffix fallback)
-- Publish record is saved in Firestore at `publishedSites/{subdomain}`
-- Website doc status is set to `published` and stores `subdomain`
-- Requests to `*.tezweb.com` are resolved to matching Firestore website config and served
+## Hosting Ready
+Included config files:
+- `vercel.json` (SPA rewrites + headers)
+- `firebase.json` (hosting rewrites + headers)
+- `.firebaserc` template
 
-Unpublish:
-- removes `publishedSites/{subdomain}` mapping
-- sets website status back to `draft`
+## Environment
+Create `.env` from `.env.example` and add:
+- Firebase keys
+- Razorpay key (`VITE_RAZORPAY_KEY_ID`)
 
-For local testing of published page resolver, open:
-- `http://localhost:5173/?published=<subdomain>`
-
-## Analytics tracked
-For each website, Firestore stores:
-
-```ts
-analytics: {
-  views,
-  whatsappClicks,
-  productClicks
-}
+## Local Run
+```bash
+npm install
+npm run dev
 ```
 
-## Firestore structure
-- `users/{uid}`
-  - profile + `templateId` + `designConfig`
-  - `trialEndsAt`
-  - `subscriptionStatus`
-  - `paidUntil`
-- `users/{uid}/websites/{websiteId}`
-  - `templateId`
-  - `designConfig`
-  - `content`
-  - `thumbnailUrl`
-  - `status` (`draft` | `published`)
-  - `subdomain`
-  - `analytics` (`views`, `whatsappClicks`, `productClicks`)
-- `publishedSites/{subdomain}`
-  - `ownerUid`
-  - `websiteId`
+## Build
+```bash
+npm run build
+```
 
-## Local setup
-1. `npm install`
-2. `cp .env.example .env`
-3. Add Firebase + Razorpay env credentials
-4. Enable Phone Auth and Firestore in Firebase console
-5. `npm run dev`
+## Deploy to Vercel
+1. Push repo to GitHub.
+2. Import project in Vercel.
+3. Set environment variables from `.env.example`.
+4. Build command: `npm run build`
+5. Output directory: `dist`
+6. Deploy.
+
+## Deploy to Firebase Hosting
+1. Install Firebase CLI:
+   ```bash
+   npm install -g firebase-tools
+   ```
+2. Login:
+   ```bash
+   firebase login
+   ```
+3. Update `.firebaserc` with your project id.
+4. Build app:
+   ```bash
+   npm run build
+   ```
+5. Deploy:
+   ```bash
+   firebase deploy --only hosting
+   ```

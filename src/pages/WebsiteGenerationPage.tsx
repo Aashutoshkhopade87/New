@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { User } from 'firebase/auth';
 import { generateDesignConfig } from '../lib/designGenerator';
 import type { DesignConfig, SectionKey } from '../types/design';
 import { saveDesignConfig } from '../services/firestoreService';
+import { applySeo } from '../lib/seo';
 
 type WebsiteGenerationPageProps = {
   user: User;
@@ -22,6 +23,15 @@ const sectionLabels: Record<SectionKey, string> = {
 };
 
 export function WebsiteGenerationPage({ user, templateId }: WebsiteGenerationPageProps) {
+  useEffect(() => {
+    applySeo({
+      title: 'Website Generation | TezWeb',
+      description: 'Generate and save seeded design configuration for your website.',
+      url: 'https://tezweb.com/dashboard',
+      robots: 'noindex,nofollow',
+    });
+  }, []);
+
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
