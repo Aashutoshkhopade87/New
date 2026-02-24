@@ -1,3 +1,5 @@
+import type { DesignConfig } from './design';
+
 export type Template = {
   id: string;
   name: string;
@@ -9,4 +11,5 @@ export type UserProfile = {
   phone: string | null;
   fullName?: string | null;
   templateId?: string;
+  designConfig?: DesignConfig;
 };

@@ -7,9 +7,10 @@ import { WebsiteGenerationPage } from './WebsiteGenerationPage';
 
 type TemplatePreviewPageProps = {
   user: User;
+  onTemplateSaved?: () => Promise<void>;
 };
 
-export function TemplatePreviewPage({ user }: TemplatePreviewPageProps) {
+export function TemplatePreviewPage({ user, onTemplateSaved }: TemplatePreviewPageProps) {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [savedTemplateId, setSavedTemplateId] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -49,6 +50,9 @@ export function TemplatePreviewPage({ user }: TemplatePreviewPageProps) {
       } else {
         setSavedTemplateId(selectedTemplateId);
         setMessage('Template saved successfully.');
+        if (onTemplateSaved) {
+          await onTemplateSaved();
+        }
       }
     } catch (error) {
       setMessage((error as Error).message);

@@ -8,8 +8,10 @@ import {
   subscribeToAuthChanges,
   verifySmsCode,
 } from '../services/authService';
-import { upsertUserProfile } from '../services/firestoreService';
+import { getUserProfile, upsertUserProfile } from '../services/firestoreService';
+import type { UserProfile } from '../types/template';
 import { TemplatePreviewPage } from './TemplatePreviewPage';
+import { DashboardPage } from './DashboardPage';
 
 const initialState: PhoneAuthState = {
   countryCode: '+91',
@@ -27,11 +29,26 @@ export function AuthPage() {
   const [message, setMessage] = useState<AuthMessage | null>(null);
   const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     const unsubscribe = subscribeToAuthChanges(setCurrentUser);
     return unsubscribe;
   }, []);
+
+  async function refreshProfile(user: User) {
+    const nextProfile = await getUserProfile(user.uid);
+    setProfile(nextProfile);
+  }
+
+  useEffect(() => {
+    if (!currentUser) {
+      setProfile(null);
+      return;
+    }
+
+    void refreshProfile(currentUser);
+  }, [currentUser]);
 
   const formattedPhone = useMemo(() => {
     return `${state.countryCode}${state.phoneNumber.replace(/\D/g, '')}`;
@@ -57,7 +74,6 @@ export function AuthPage() {
     try {
       const recaptcha = getOrCreateRecaptcha('firebase-recaptcha');
       const nextConfirmation = await requestPhoneVerification(formattedPhone, recaptcha);
-
       setConfirmation(nextConfirmation);
       setStep('verify-otp');
       setMessage({ type: 'success', text: `OTP sent to ${formattedPhone}` });
@@ -83,6 +99,7 @@ export function AuthPage() {
     try {
       const credential = await verifySmsCode(confirmation, state.verificationCode);
       await upsertUserProfile({ user: credential.user, fullName: state.fullName });
+      await refreshProfile(credential.user);
       setMessage({
         type: 'success',
         text: mode === 'signup' ? 'Signup complete. Trial started!' : 'Login successful.',
@@ -94,8 +111,12 @@ export function AuthPage() {
     }
   }
 
+  if (currentUser && profile?.templateId) {
+    return <DashboardPage user={currentUser} profile={profile} />;
+  }
+
   if (currentUser) {
-    return <TemplatePreviewPage user={currentUser} />;
+    return <TemplatePreviewPage user={currentUser} onTemplateSaved={() => refreshProfile(currentUser)} />;
   }
 
   return (
