@@ -4,12 +4,12 @@ import { PhoneAuthForm } from '../components/PhoneAuthForm';
 import type { AuthMessage, AuthMode, AuthStep, PhoneAuthState } from '../types/auth';
 import {
   getOrCreateRecaptcha,
-  logout,
   requestPhoneVerification,
   subscribeToAuthChanges,
   verifySmsCode,
 } from '../services/authService';
 import { upsertUserProfile } from '../services/firestoreService';
+import { TemplatePreviewPage } from './TemplatePreviewPage';
 
 const initialState: PhoneAuthState = {
   countryCode: '+91',
@@ -94,12 +94,8 @@ export function AuthPage() {
     }
   }
 
-  async function handleLogout() {
-    await logout();
-    setState(initialState);
-    setStep('request-otp');
-    setConfirmation(null);
-    setMessage({ type: 'success', text: 'Logged out.' });
+  if (currentUser) {
+    return <TemplatePreviewPage user={currentUser} />;
   }
 
   return (
@@ -117,29 +113,6 @@ export function AuthPage() {
           onSubmitOtp={handleOtpSubmit}
           onBack={() => setStep('request-otp')}
         />
-
-        <section className="w-full rounded-2xl bg-white p-6 shadow-sm md:max-w-xl">
-          <h2 className="text-xl font-semibold text-slate-900">Session</h2>
-          {!currentUser ? (
-            <p className="mt-2 text-sm text-slate-600">No active user yet. Complete OTP verification to sign in.</p>
-          ) : (
-            <div className="mt-3 space-y-2 text-sm text-slate-700">
-              <p>
-                <strong>UID:</strong> {currentUser.uid}
-              </p>
-              <p>
-                <strong>Phone:</strong> {currentUser.phoneNumber}
-              </p>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="mt-2 rounded-lg border border-slate-300 px-4 py-2 font-medium text-slate-700 transition hover:bg-slate-100"
-              >
-                Logout
-              </button>
-            </div>
-          )}
-        </section>
       </div>
     </main>
   );

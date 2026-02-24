@@ -1,6 +1,15 @@
-import { doc, getDoc, serverTimestamp, setDoc, Timestamp } from 'firebase/firestore';
+import {
+  doc,
+  getDoc,
+  runTransaction,
+  serverTimestamp,
+  setDoc,
+  Timestamp,
+  type DocumentData,
+} from 'firebase/firestore';
 import type { User } from 'firebase/auth';
 import { firestoreDb } from '../lib/firebase';
+import type { UserProfile } from '../types/template';
 
 type UpsertProfileInput = {
   user: User;
@@ -38,4 +47,39 @@ export async function upsertUserProfile({ user, fullName }: UpsertProfileInput) 
     },
     { merge: true },
   );
+}
+
+export async function getUserProfile(uid: string): Promise<UserProfile | null> {
+  const userDocRef = doc(firestoreDb, 'users', uid);
+  const snapshot = await getDoc(userDocRef);
+
+  if (!snapshot.exists()) {
+    return null;
+  }
+
+  return snapshot.data() as UserProfile;
+}
+
+export async function saveTemplateSelection(uid: string, templateId: string): Promise<boolean> {
+  const userDocRef = doc(firestoreDb, 'users', uid);
+
+  return runTransaction(firestoreDb, async (transaction) => {
+    const currentSnapshot = await transaction.get(userDocRef);
+    const currentData = currentSnapshot.data() as DocumentData | undefined;
+
+    if (!currentSnapshot.exists()) {
+      throw new Error('User profile not found. Complete authentication first.');
+    }
+
+    if (currentData?.templateId) {
+      return false;
+    }
+
+    transaction.update(userDocRef, {
+      templateId,
+      templateSelectedAt: serverTimestamp(),
+    });
+
+    return true;
+  });
 }

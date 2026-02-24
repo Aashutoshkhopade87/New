@@ -5,6 +5,7 @@ Clean starter project with:
 - Tailwind CSS
 - Firebase Auth (Phone OTP + reCAPTCHA)
 - Searchable country selector (flags + country codes)
+- Template preview screen (6+ cards, fixed action button)
 - Firestore user profile setup with 7-day trial metadata
 
 ## Folder Structure
@@ -15,17 +16,21 @@ Clean starter project with:
 ├── src/
 │   ├── components/
 │   │   ├── CountryCodeSelect.tsx
-│   │   └── PhoneAuthForm.tsx
+│   │   ├── PhoneAuthForm.tsx
+│   │   └── TemplateCard.tsx
 │   ├── lib/
 │   │   ├── env.ts
-│   │   └── firebase.ts
+│   │   ├── firebase.ts
+│   │   └── templates.ts
 │   ├── pages/
-│   │   └── AuthPage.tsx
+│   │   ├── AuthPage.tsx
+│   │   └── TemplatePreviewPage.tsx
 │   ├── services/
 │   │   ├── authService.ts
 │   │   └── firestoreService.ts
 │   ├── types/
-│   │   └── auth.ts
+│   │   ├── auth.ts
+│   │   └── template.ts
 │   ├── App.tsx
 │   ├── index.css
 │   └── main.tsx
@@ -47,9 +52,12 @@ On first signup/login, profile is created at `users/{uid}`:
   trialEndsAt, // createdAt + 7 days
   plan: "trial",
   status: "active",
-  maxWebsites: 2
+  maxWebsites: 2,
+  templateId // saved once from Template Preview screen
 }
 ```
+
+`templateId` is saved once and locked to prevent repeated selection on refresh/edit.
 
 ## Local setup
 
