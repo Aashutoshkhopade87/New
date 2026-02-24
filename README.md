@@ -1,73 +1,81 @@
-# TezWeb Starter (React + Vite + TypeScript + Tailwind + Firebase)
+# TezWeb AI Website Builder
 
-TezWeb includes:
-- Phone OTP auth (Firebase)
-- Template selection + website generation
-- Dashboard with publish/unpublish
-- Subscription + trial logic
-- Dynamic SEO meta tags + OpenGraph
-- Sitemap + robots.txt
-- Vercel / Firebase Hosting ready configs
+Professional React + Vite + TypeScript + Tailwind + Firebase setup for Indian SMB website onboarding.
 
-## SEO Features
-- Dynamic meta tags by page via `applySeo()`.
-- OpenGraph + Twitter tags auto-updated.
-- Canonical URL updates per page.
-- Static SEO files:
-  - `public/sitemap.xml`
-  - `public/robots.txt`
+## Included product flow
 
-## Hosting Ready
-Included config files:
-- `vercel.json` (SPA rewrites + headers)
-- `firebase.json` (hosting rewrites + headers)
-- `.firebaserc` template
+- Landing page with two CTAs:
+  - **Create Website**
+  - **Browse Templates**
+- Hero text:
+  - **Create Your Business Website in Just 2 Minutes**
+  - **No coding needed. WhatsApp powered websites.**
+- Create Website form:
+  - Business Name
+  - Business Category
+  - WhatsApp Number with Country Code selector
+  - Language selector (English, Hindi, Marathi)
+  - Additional Instructions
+- AI website generation with this section order:
+  1. Hero banner with AI image
+  2. Business name + tagline
+  3. Products / Services
+  4. Gallery
+  5. Social links
+  6. About
+  7. Location + Map
+  8. WhatsApp CTA
+  9. Contact
+- One-time template selection + live preview + Next CTA after select.
+- Deferred login: user asked to login only for publish/edit/dashboard.
+- Dashboard:
+  - Website list
+  - Edit / Preview / Delete / Publish / Unpublish
+  - Trial days left + subscription status
+  - Analytics counters
+  - Editor auto-save
+  - Image upload support
+- Publish URLs:
+  - `https://tezweb.com/site/{slug-id}`
+  - Future-ready: `https://{shopname}.tezweb.com`
+
+## Pricing logic implemented
+
+- Free: 7-day trial, 1 website
+- Paid ₹199/month: up to 2 websites
+- Trial expiry auto-unpublish flow
+- Razorpay checkout integration hook present
+
+## Firebase usage
+
+- Auth: Phone OTP
+- Firestore: users/websites/publish mapping/plans/analytics
+- Storage: website image upload
 
 ## Environment
-Create `.env` from `.env.example` and add:
-- Firebase keys
-- Razorpay key (`VITE_RAZORPAY_KEY_ID`)
 
-## Local Run
+Copy `.env.example` to `.env`:
+
+```env
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_STORAGE_BUCKET=
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
+VITE_RAZORPAY_KEY_ID=
+VITE_ENABLE_DEMO_AUTH=true
+```
+
+## Run
+
 ```bash
 npm install
 npm run dev
 ```
 
 ## Build
+
 ```bash
 npm run build
 ```
-
-## Deploy to Vercel
-1. Push repo to GitHub.
-2. Import project in Vercel.
-3. Set environment variables from `.env.example`.
-4. Build command: `npm run build`
-5. Output directory: `dist`
-6. Deploy.
-
-## Deploy to Firebase Hosting
-1. Install Firebase CLI:
-   ```bash
-   npm install -g firebase-tools
-   ```
-2. Login:
-   ```bash
-   firebase login
-   ```
-3. Update `.firebaserc` with your project id.
-4. Build app:
-   ```bash
-   npm run build
-   ```
-5. Deploy:
-   ```bash
-   firebase deploy --only hosting
-   ```
-
-
-## Demo Login (Testing)
-- Set `VITE_ENABLE_DEMO_AUTH=true` in `.env` to show **Use Demo Login (Testing)** on auth screen.
-- Demo login uses local browser storage (no OTP needed) so you can test dashboard flows quickly.
-- Later, disable demo and continue with real Firebase Phone OTP flow.

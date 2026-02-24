@@ -15,6 +15,18 @@ export type WebsiteContent = {
   contactEmail: string;
   whatsapp: string;
   products: string[];
+  category?: string;
+  language?: 'English' | 'Hindi' | 'Marathi';
+  socialLinks?: {
+    instagram?: string;
+    facebook?: string;
+    youtube?: string;
+  };
+  gallery?: string[];
+  locationLabel?: string;
+  mapEmbedUrl?: string;
+  additionalInstructions?: string;
+  heroImage?: string;
 };
 
 export type Website = {
@@ -23,7 +35,18 @@ export type Website = {
   thumbnailUrl: string;
   status: WebsiteStatus;
   subdomain?: string;
+  slug?: string;
+  publishedPath?: string;
   designConfig: DesignConfig;
   content: WebsiteContent;
   analytics: WebsiteAnalytics;
+};
+
+export type CreateWebsiteInput = {
+  businessName: string;
+  businessCategory: string;
+  whatsappNumber: string;
+  countryCode: string;
+  language: 'English' | 'Hindi' | 'Marathi';
+  additionalInstructions: string;
 };

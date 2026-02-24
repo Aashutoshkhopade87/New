@@ -15,11 +15,12 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
-import { firestoreDb } from '../lib/firebase';
+import { firestoreDb, firebaseStorage } from '../lib/firebase';
 import { getDemoProfile, isDemoUid, listDemoWebsites, removeDemoWebsite, replaceDemoWebsites, saveDemoWebsite, setDemoProfile } from '../lib/demoStore';
 import type { UserProfile } from '../types/template';
 import type { DesignConfig } from '../types/design';
 import type { Website, WebsiteContent } from '../types/website';
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 
 type UpsertProfileInput = {
   user: User;
@@ -30,6 +31,7 @@ type CreateWebsiteInput = {
   templateId: string;
   designConfig: DesignConfig;
   content: WebsiteContent;
+  slug?: string;
 };
 
 type PublishedSiteRecord = {
@@ -175,6 +177,8 @@ function mapWebsite(id: string, data: DocumentData): Website {
   return {
     id,
     templateId: data.templateId,
+    slug: data.slug,
+    publishedPath: data.publishedPath,
     thumbnailUrl: data.thumbnailUrl,
     status: data.status,
     subdomain: data.subdomain,
@@ -228,6 +232,7 @@ export async function createWebsite(uid: string, input: CreateWebsiteInput): Pro
   }
   const docRef = await addDoc(websitesCollection(uid), {
     templateId: input.templateId,
+    slug: input.slug ?? undefined,
     designConfig: input.designConfig,
     content: input.content,
     analytics: {
@@ -391,9 +396,13 @@ export async function publishWebsite(uid: string, websiteId: string, shopName: s
       }
     }
 
+    const slug = (siteSnapshot.data().slug as string | undefined) ?? `${base}-${Math.random().toString(36).slice(2,6)}`;
+
     transaction.update(websiteRef, {
       status: 'published',
       subdomain: chosen,
+      slug,
+      publishedPath: `/site/${slug}`,
       publishedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -530,4 +539,34 @@ export async function trackProductClick(uid: string, websiteId: string): Promise
 
   const snapshot = await getDoc(websiteRef);
   return mapWebsite(snapshot.id, snapshot.data() as DocumentData);
+}
+
+
+export async function resolvePublishedWebsiteBySlug(slug: string): Promise<Website | null> {
+  const usersSnapshot = await getDocs(collection(firestoreDb, 'users'));
+
+  for (const userDoc of usersSnapshot.docs) {
+    const websitesSnapshot = await getDocs(query(collection(firestoreDb, 'users', userDoc.id, 'websites')));
+    const match = websitesSnapshot.docs.find((entry) => {
+      const data = entry.data();
+      return data.slug === slug && data.status === 'published';
+    });
+
+    if (match) {
+      return mapWebsite(match.id, match.data());
+    }
+  }
+
+  return null;
+}
+
+
+export async function uploadWebsiteImage(uid: string, websiteId: string, file: File): Promise<string> {
+  if (isDemoUid(uid)) {
+    return Promise.resolve(URL.createObjectURL(file));
+  }
+
+  const imageRef = ref(firebaseStorage, `users/${uid}/websites/${websiteId}/${Date.now()}-${file.name}`);
+  await uploadBytes(imageRef, file);
+  return getDownloadURL(imageRef);
 }
