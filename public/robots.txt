@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://tezweb.com/sitemap.xml

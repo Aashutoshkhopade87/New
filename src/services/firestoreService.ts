@@ -1,0 +1,533 @@
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  increment,
+  query,
+  runTransaction,
+  serverTimestamp,
+  setDoc,
+  Timestamp,
+  type DocumentData,
+  updateDoc,
+} from 'firebase/firestore';
+import type { User } from 'firebase/auth';
+import { firestoreDb } from '../lib/firebase';
+import { getDemoProfile, isDemoUid, listDemoWebsites, removeDemoWebsite, replaceDemoWebsites, saveDemoWebsite, setDemoProfile } from '../lib/demoStore';
+import type { UserProfile } from '../types/template';
+import type { DesignConfig } from '../types/design';
+import type { Website, WebsiteContent } from '../types/website';
+
+type UpsertProfileInput = {
+  user: User;
+  fullName?: string;
+};
+
+type CreateWebsiteInput = {
+  templateId: string;
+  designConfig: DesignConfig;
+  content: WebsiteContent;
+};
+
+type PublishedSiteRecord = {
+  ownerUid: string;
+  websiteId: string;
+};
+
+function parseDateValue(value: unknown): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value === 'string' || typeof value === 'number') return new Date(value);
+  if (typeof value === 'object' && value !== null && 'toDate' in value) {
+    const candidate = (value as { toDate: () => Date }).toDate();
+    return candidate;
+  }
+  return null;
+}
+
+function hasActivePublishingAccess(profile: UserProfile | null): boolean {
+  if (!profile) return false;
+
+  const paidUntil = parseDateValue(profile.paidUntil);
+  if (profile.subscriptionStatus === 'active' && paidUntil && paidUntil.getTime() > Date.now()) {
+    return true;
+  }
+
+  const trialEndsAt = parseDateValue(profile.trialEndsAt);
+  return Boolean(trialEndsAt && trialEndsAt.getTime() > Date.now());
+}
+
+export async function upsertUserProfile({ user, fullName }: UpsertProfileInput) {
+  if (isDemoUid(user.uid)) {
+    const profile = getDemoProfile();
+    setDemoProfile({ ...profile, fullName: fullName?.trim() || profile.fullName || 'Demo User' });
+    return;
+  }
+  const userDocRef = doc(firestoreDb, 'users', user.uid);
+  const userDoc = await getDoc(userDocRef);
+
+  if (!userDoc.exists()) {
+    const now = Date.now();
+    const trialEndsAt = Timestamp.fromDate(new Date(now + 7 * 24 * 60 * 60 * 1000));
+
+    await setDoc(userDocRef, {
+      uid: user.uid,
+      phone: user.phoneNumber,
+      fullName: fullName?.trim() || null,
+      createdAt: serverTimestamp(),
+      trialEndsAt,
+      subscriptionStatus: 'inactive',
+      paidUntil: null,
+      plan: 'trial',
+      status: 'active',
+      maxWebsites: 2,
+    });
+
+    return;
+  }
+
+  await setDoc(
+    userDocRef,
+    {
+      phone: user.phoneNumber,
+      fullName: fullName?.trim() || userDoc.data().fullName || null,
+      status: 'active',
+    },
+    { merge: true },
+  );
+}
+
+export async function getUserProfile(uid: string): Promise<UserProfile | null> {
+  if (isDemoUid(uid)) {
+    return getDemoProfile();
+  }
+  const userDocRef = doc(firestoreDb, 'users', uid);
+  const snapshot = await getDoc(userDocRef);
+
+  if (!snapshot.exists()) {
+    return null;
+  }
+
+  return snapshot.data() as UserProfile;
+}
+
+export async function saveTemplateSelection(uid: string, templateId: string): Promise<boolean> {
+  if (isDemoUid(uid)) {
+    const profile = getDemoProfile();
+    if (profile.templateId) return false;
+    setDemoProfile({ ...profile, templateId });
+    return true;
+  }
+  const userDocRef = doc(firestoreDb, 'users', uid);
+
+  return runTransaction(firestoreDb, async (transaction) => {
+    const currentSnapshot = await transaction.get(userDocRef);
+    const currentData = currentSnapshot.data() as DocumentData | undefined;
+
+    if (!currentSnapshot.exists()) {
+      throw new Error('User profile not found. Complete authentication first.');
+    }
+
+    if (currentData?.templateId) {
+      return false;
+    }
+
+    transaction.update(userDocRef, {
+      templateId,
+      templateSelectedAt: serverTimestamp(),
+    });
+
+    return true;
+  });
+}
+
+export async function saveDesignConfig(uid: string, designConfig: DesignConfig) {
+  if (isDemoUid(uid)) {
+    const profile = getDemoProfile();
+    setDemoProfile({ ...profile, designConfig });
+    return;
+  }
+  const userDocRef = doc(firestoreDb, 'users', uid);
+  const snapshot = await getDoc(userDocRef);
+
+  if (!snapshot.exists()) {
+    throw new Error('User profile not found. Complete authentication first.');
+  }
+
+  await setDoc(
+    userDocRef,
+    {
+      designConfig,
+      designUpdatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+}
+
+function websitesCollection(uid: string) {
+  return collection(firestoreDb, 'users', uid, 'websites');
+}
+
+function mapWebsite(id: string, data: DocumentData): Website {
+  return {
+    id,
+    templateId: data.templateId,
+    thumbnailUrl: data.thumbnailUrl,
+    status: data.status,
+    subdomain: data.subdomain,
+    designConfig: data.designConfig,
+    content: data.content,
+    analytics: {
+      views: data.analytics?.views ?? 0,
+      whatsappClicks: data.analytics?.whatsappClicks ?? 0,
+      productClicks: data.analytics?.productClicks ?? 0,
+    },
+  } as Website;
+}
+
+function normalizeSubdomain(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 40);
+}
+
+export async function listWebsites(uid: string): Promise<Website[]> {
+  if (isDemoUid(uid)) {
+    return listDemoWebsites();
+  }
+  const snapshot = await getDocs(query(websitesCollection(uid)));
+  return snapshot.docs.map((item) => mapWebsite(item.id, item.data()));
+}
+
+export async function createWebsite(uid: string, input: CreateWebsiteInput): Promise<Website> {
+  if (isDemoUid(uid)) {
+    const profile = getDemoProfile();
+    const max = profile.subscriptionStatus === 'active' ? 2 : 1;
+    const websites = listDemoWebsites();
+    if (websites.length >= max) {
+      throw new Error(`Plan limit reached. Max ${max} website(s) in demo mode.`);
+    }
+
+    const site: Website = {
+      id: `demo-${Date.now()}`,
+      templateId: input.templateId,
+      thumbnailUrl: 'https://images.unsplash.com/photo-1467232004584-a241de8bcf5d?auto=format&fit=crop&w=600&q=80',
+      status: 'draft',
+      designConfig: input.designConfig,
+      content: input.content,
+      analytics: { views: 0, whatsappClicks: 0, productClicks: 0 },
+    };
+    saveDemoWebsite(site);
+    return site;
+  }
+  const docRef = await addDoc(websitesCollection(uid), {
+    templateId: input.templateId,
+    designConfig: input.designConfig,
+    content: input.content,
+    analytics: {
+      views: 0,
+      whatsappClicks: 0,
+      productClicks: 0,
+    },
+    thumbnailUrl: 'https://images.unsplash.com/photo-1467232004584-a241de8bcf5d?auto=format&fit=crop&w=600&q=80',
+    status: 'draft',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  const snapshot = await getDoc(docRef);
+  return mapWebsite(snapshot.id, snapshot.data() as DocumentData);
+}
+
+export async function updateWebsite(
+  uid: string,
+  websiteId: string,
+  patch: Partial<Pick<Website, 'content' | 'thumbnailUrl'>>,
+): Promise<Website> {
+  if (isDemoUid(uid)) {
+    const websites = listDemoWebsites();
+    const site = websites.find((item) => item.id === websiteId);
+    if (!site) throw new Error('Website not found.');
+    const updated = { ...site, ...patch };
+    saveDemoWebsite(updated);
+    return updated;
+  }
+  const websiteRef = doc(firestoreDb, 'users', uid, 'websites', websiteId);
+  await updateDoc(websiteRef, {
+    ...patch,
+    updatedAt: serverTimestamp(),
+  });
+
+  const snapshot = await getDoc(websiteRef);
+  return mapWebsite(snapshot.id, snapshot.data() as DocumentData);
+}
+
+export async function deleteWebsite(uid: string, websiteId: string) {
+  if (isDemoUid(uid)) {
+    removeDemoWebsite(websiteId);
+    return;
+  }
+  const websiteRef = doc(firestoreDb, 'users', uid, 'websites', websiteId);
+  const snapshot = await getDoc(websiteRef);
+  const subdomain = snapshot.data()?.subdomain as string | undefined;
+
+  if (subdomain) {
+    await deleteDoc(doc(firestoreDb, 'publishedSites', subdomain));
+  }
+
+  await deleteDoc(websiteRef);
+}
+
+async function unpublishAllWebsites(uid: string) {
+  const websites = await listWebsites(uid);
+  const toUnpublish = websites.filter((site) => site.status === 'published');
+
+  await Promise.all(
+    toUnpublish.map(async (site) => {
+      if (site.subdomain) {
+        await deleteDoc(doc(firestoreDb, 'publishedSites', site.subdomain));
+      }
+
+      await updateDoc(doc(firestoreDb, 'users', uid, 'websites', site.id), {
+        status: 'draft',
+        updatedAt: serverTimestamp(),
+      });
+    }),
+  );
+}
+
+export async function enforceTrialAndPublishingAccess(uid: string): Promise<UserProfile | null> {
+  if (isDemoUid(uid)) {
+    const profile = getDemoProfile();
+    if (hasActivePublishingAccess(profile)) return profile;
+    replaceDemoWebsites(listDemoWebsites().map((site) => ({ ...site, status: 'draft' })));
+    const updated = { ...profile, subscriptionStatus: 'expired' as const };
+    setDemoProfile(updated);
+    return updated;
+  }
+  const profile = await getUserProfile(uid);
+  if (!profile) return null;
+
+  if (hasActivePublishingAccess(profile)) {
+    return profile;
+  }
+
+  await unpublishAllWebsites(uid);
+
+  const userRef = doc(firestoreDb, 'users', uid);
+  await updateDoc(userRef, {
+    subscriptionStatus: 'expired',
+    updatedAt: serverTimestamp(),
+  });
+
+  return getUserProfile(uid);
+}
+
+export async function publishWebsite(uid: string, websiteId: string, shopName: string): Promise<Website> {
+  if (isDemoUid(uid)) {
+    const profile = getDemoProfile();
+    if (!hasActivePublishingAccess(profile)) throw new Error('Trial expired. Subscribe to continue publishing.');
+    const websites = listDemoWebsites();
+    const idx = websites.findIndex((item) => item.id === websiteId);
+    if (idx === -1) throw new Error('Website not found.');
+    const base = normalizeSubdomain(shopName || websites[idx].content.businessName || 'shop');
+    const updated = { ...websites[idx], status: 'published' as const, subdomain: base || 'demo-shop' };
+    websites[idx] = updated;
+    replaceDemoWebsites(websites);
+    return updated;
+  }
+  const profile = await getUserProfile(uid);
+  if (!hasActivePublishingAccess(profile)) {
+    throw new Error('Trial expired. Subscribe to continue publishing.');
+  }
+
+  const websiteRef = doc(firestoreDb, 'users', uid, 'websites', websiteId);
+
+  await runTransaction(firestoreDb, async (transaction) => {
+    const siteSnapshot = await transaction.get(websiteRef);
+    if (!siteSnapshot.exists()) {
+      throw new Error('Website not found.');
+    }
+
+    const existing = siteSnapshot.data().subdomain as string | undefined;
+    const base = normalizeSubdomain(shopName || 'shop');
+    if (!base) {
+      throw new Error('Invalid shop name for subdomain.');
+    }
+
+    let chosen = existing ?? base;
+    let index = 0;
+
+    while (true) {
+      const candidate = index === 0 ? chosen : `${base}-${index}`;
+      const publishedRef = doc(firestoreDb, 'publishedSites', candidate);
+      const publishedSnapshot = await transaction.get(publishedRef);
+
+      if (!publishedSnapshot.exists()) {
+        chosen = candidate;
+        transaction.set(publishedRef, {
+          ownerUid: uid,
+          websiteId,
+          updatedAt: serverTimestamp(),
+        } satisfies PublishedSiteRecord & { updatedAt: unknown });
+        break;
+      }
+
+      const data = publishedSnapshot.data() as PublishedSiteRecord;
+      if (data.ownerUid === uid && data.websiteId === websiteId) {
+        chosen = candidate;
+        break;
+      }
+
+      index += 1;
+      if (index > 50) {
+        throw new Error('Could not allocate a unique subdomain.');
+      }
+    }
+
+    transaction.update(websiteRef, {
+      status: 'published',
+      subdomain: chosen,
+      publishedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  });
+
+  const snapshot = await getDoc(websiteRef);
+  return mapWebsite(snapshot.id, snapshot.data() as DocumentData);
+}
+
+export async function unpublishWebsite(uid: string, websiteId: string): Promise<Website> {
+  if (isDemoUid(uid)) {
+    const websites = listDemoWebsites();
+    const idx = websites.findIndex((item) => item.id === websiteId);
+    if (idx === -1) throw new Error('Website not found.');
+    const updated = { ...websites[idx], status: 'draft' as const };
+    websites[idx] = updated;
+    replaceDemoWebsites(websites);
+    return updated;
+  }
+  const websiteRef = doc(firestoreDb, 'users', uid, 'websites', websiteId);
+
+  await runTransaction(firestoreDb, async (transaction) => {
+    const siteSnapshot = await transaction.get(websiteRef);
+    if (!siteSnapshot.exists()) {
+      throw new Error('Website not found.');
+    }
+
+    const subdomain = siteSnapshot.data().subdomain as string | undefined;
+    if (subdomain) {
+      transaction.delete(doc(firestoreDb, 'publishedSites', subdomain));
+    }
+
+    transaction.update(websiteRef, {
+      status: 'draft',
+      updatedAt: serverTimestamp(),
+    });
+  });
+
+  const snapshot = await getDoc(websiteRef);
+  return mapWebsite(snapshot.id, snapshot.data() as DocumentData);
+}
+
+export async function resolvePublishedWebsite(subdomain: string): Promise<Website | null> {
+  const mappingRef = doc(firestoreDb, 'publishedSites', normalizeSubdomain(subdomain));
+  const mappingSnapshot = await getDoc(mappingRef);
+  if (!mappingSnapshot.exists()) {
+    return null;
+  }
+
+  const mappingData = mappingSnapshot.data() as PublishedSiteRecord;
+  const websiteRef = doc(firestoreDb, 'users', mappingData.ownerUid, 'websites', mappingData.websiteId);
+  const websiteSnapshot = await getDoc(websiteRef);
+  if (!websiteSnapshot.exists()) {
+    return null;
+  }
+
+  const website = mapWebsite(websiteSnapshot.id, websiteSnapshot.data());
+  return website.status === 'published' ? website : null;
+}
+
+export async function activateSubscription(uid: string) {
+  if (isDemoUid(uid)) {
+    const updated: UserProfile = { ...getDemoProfile(), subscriptionStatus: 'active', plan: 'pro', maxWebsites: 2, paidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() };
+    setDemoProfile(updated);
+    return updated;
+  }
+  const userRef = doc(firestoreDb, 'users', uid);
+  const paidUntil = Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
+
+  await updateDoc(userRef, {
+    subscriptionStatus: 'active',
+    paidUntil,
+    updatedAt: serverTimestamp(),
+  });
+
+  return getUserProfile(uid);
+}
+
+export async function trackPageView(uid: string, websiteId: string): Promise<Website> {
+  if (isDemoUid(uid)) {
+    const websites = listDemoWebsites();
+    const idx = websites.findIndex((item) => item.id === websiteId);
+    if (idx === -1) throw new Error('Website not found.');
+    const updated = { ...websites[idx], analytics: { ...websites[idx].analytics, views: websites[idx].analytics.views + 1 } };
+    websites[idx] = updated;
+    replaceDemoWebsites(websites);
+    return updated;
+  }
+  const websiteRef = doc(firestoreDb, 'users', uid, 'websites', websiteId);
+  await updateDoc(websiteRef, {
+    'analytics.views': increment(1),
+    updatedAt: serverTimestamp(),
+  });
+
+  const snapshot = await getDoc(websiteRef);
+  return mapWebsite(snapshot.id, snapshot.data() as DocumentData);
+}
+
+export async function trackWhatsAppClick(uid: string, websiteId: string): Promise<Website> {
+  if (isDemoUid(uid)) {
+    const websites = listDemoWebsites();
+    const idx = websites.findIndex((item) => item.id === websiteId);
+    if (idx === -1) throw new Error('Website not found.');
+    const updated = { ...websites[idx], analytics: { ...websites[idx].analytics, whatsappClicks: websites[idx].analytics.whatsappClicks + 1 } };
+    websites[idx] = updated;
+    replaceDemoWebsites(websites);
+    return updated;
+  }
+  const websiteRef = doc(firestoreDb, 'users', uid, 'websites', websiteId);
+  await updateDoc(websiteRef, {
+    'analytics.whatsappClicks': increment(1),
+    updatedAt: serverTimestamp(),
+  });
+
+  const snapshot = await getDoc(websiteRef);
+  return mapWebsite(snapshot.id, snapshot.data() as DocumentData);
+}
+
+export async function trackProductClick(uid: string, websiteId: string): Promise<Website> {
+  if (isDemoUid(uid)) {
+    const websites = listDemoWebsites();
+    const idx = websites.findIndex((item) => item.id === websiteId);
+    if (idx === -1) throw new Error('Website not found.');
+    const updated = { ...websites[idx], analytics: { ...websites[idx].analytics, productClicks: websites[idx].analytics.productClicks + 1 } };
+    websites[idx] = updated;
+    replaceDemoWebsites(websites);
+    return updated;
+  }
+  const websiteRef = doc(firestoreDb, 'users', uid, 'websites', websiteId);
+  await updateDoc(websiteRef, {
+    'analytics.productClicks': increment(1),
+    updatedAt: serverTimestamp(),
+  });
+
+  const snapshot = await getDoc(websiteRef);
+  return mapWebsite(snapshot.id, snapshot.data() as DocumentData);
+}
