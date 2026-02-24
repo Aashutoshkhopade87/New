@@ -12,4 +12,7 @@ export type UserProfile = {
   fullName?: string | null;
   templateId?: string;
   designConfig?: DesignConfig;
+  trialEndsAt?: unknown;
+  subscriptionStatus?: 'inactive' | 'active' | 'expired';
+  paidUntil?: unknown;
 };

@@ -3,9 +3,12 @@ import type { User } from 'firebase/auth';
 import type { DesignConfig } from '../types/design';
 import type { UserProfile } from '../types/template';
 import type { Website, WebsiteContent } from '../types/website';
+import { openRazorpayCheckout } from '../lib/razorpay';
 import {
+  activateSubscription,
   createWebsite,
   deleteWebsite,
+  enforceTrialAndPublishingAccess,
   listWebsites,
   publishWebsite,
   trackPageView,
@@ -30,6 +33,40 @@ const initialContent: WebsiteContent = {
   products: ['Product 1', 'Product 2'],
 };
 
+function parseDateValue(value: unknown): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value === 'object' && value !== null && 'toDate' in value) {
+    return (value as { toDate: () => Date }).toDate();
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    return new Date(value);
+  }
+  return null;
+}
+
+function getPublishAccess(profile: UserProfile | null) {
+  if (!profile) {
+    return { canPublish: false, reason: 'Profile not available.' };
+  }
+
+  const paidUntil = parseDateValue(profile.paidUntil);
+  if (profile.subscriptionStatus === 'active' && paidUntil && paidUntil.getTime() > Date.now()) {
+    return { canPublish: true, reason: '' };
+  }
+
+  const trialEndsAt = parseDateValue(profile.trialEndsAt);
+  if (trialEndsAt && trialEndsAt.getTime() > Date.now()) {
+    const daysLeft = Math.max(1, Math.ceil((trialEndsAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
+    return { canPublish: true, reason: `${daysLeft} day(s) left in free trial.` };
+  }
+
+  return {
+    canPublish: false,
+    reason: 'Trial expired. Subscribe for ₹199/month to continue publishing.',
+  };
+}
+
 function ChartRow({ label, value, max }: { label: string; value: number; max: number }) {
   const width = max === 0 ? 0 : Math.max(8, Math.round((value / max) * 100));
 
@@ -51,17 +88,39 @@ export function DashboardPage({ user, profile }: DashboardPageProps) {
   const [activeWebsite, setActiveWebsite] = useState<Website | null>(null);
   const [draftContent, setDraftContent] = useState<WebsiteContent>(initialContent);
   const [message, setMessage] = useState('');
+  const [profileState, setProfileState] = useState<UserProfile | null>(profile);
 
-  const designConfig = profile.designConfig;
+  const designConfig = profileState?.designConfig;
+  const publishAccess = useMemo(() => getPublishAccess(profileState), [profileState]);
 
   useEffect(() => {
-    async function loadWebsites() {
+    async function loadDashboardData() {
+      const nextProfile = await enforceTrialAndPublishingAccess(user.uid);
+      setProfileState(nextProfile);
       const items = await listWebsites(user.uid);
       setWebsites(items);
     }
 
-    void loadWebsites();
+    void loadDashboardData();
   }, [user.uid]);
+
+  async function handleSubscribe() {
+    try {
+      await openRazorpayCheckout({
+        amountInPaise: 19900,
+        name: 'TezWeb',
+        description: 'TezWeb Pro Subscription - ₹199/month',
+        prefill: {
+          contact: user.phoneNumber ?? undefined,
+        },
+      });
+      const updatedProfile = await activateSubscription(user.uid);
+      setProfileState(updatedProfile);
+      setMessage('Subscription activated for 30 days.');
+    } catch (error) {
+      setMessage((error as Error).message);
+    }
+  }
 
   async function setActiveWithTracking(website: Website, editing = false) {
     const updated = await trackPageView(user.uid, website.id);
@@ -78,14 +137,14 @@ export function DashboardPage({ user, profile }: DashboardPageProps) {
   }
 
   async function onCreate() {
-    if (!designConfig || !profile.templateId) {
+    if (!designConfig || !profileState?.templateId) {
       setMessage('Generate and save a design config first.');
       return;
     }
 
     const created = await createWebsite(user.uid, {
       designConfig,
-      templateId: profile.templateId,
+      templateId: profileState.templateId,
       content: initialContent,
     });
     setWebsites((prev) => [created, ...prev]);
@@ -114,6 +173,11 @@ export function DashboardPage({ user, profile }: DashboardPageProps) {
   }
 
   async function onTogglePublish(site: Website) {
+    if (site.status !== 'published' && !publishAccess.canPublish) {
+      setMessage(publishAccess.reason);
+      return;
+    }
+
     const updated =
       site.status === 'published'
         ? await unpublishWebsite(user.uid, site.id)
@@ -172,6 +236,23 @@ export function DashboardPage({ user, profile }: DashboardPageProps) {
           {message && <p className="mt-2 text-sm text-slate-600">{message}</p>}
         </header>
 
+        <section className="rounded-2xl bg-white p-5 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-900">Subscription</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Plan: ₹199/month after 7-day trial.
+          </p>
+          <p className="mt-1 text-sm text-slate-600">
+            {publishAccess.canPublish ? publishAccess.reason || 'Publishing enabled.' : publishAccess.reason}
+          </p>
+          <button
+            type="button"
+            onClick={() => void handleSubscribe()}
+            className="mt-3 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white"
+          >
+            Subscribe ₹199/month
+          </button>
+        </section>
+
         <section className="grid gap-5 lg:grid-cols-2">
           <div className="rounded-2xl bg-white p-4 shadow-sm">
             <h2 className="mb-3 text-lg font-semibold">Websites</h2>
@@ -215,10 +296,11 @@ export function DashboardPage({ user, profile }: DashboardPageProps) {
                     </button>
                     <button
                       type="button"
+                      disabled={site.status !== 'published' && !publishAccess.canPublish}
                       onClick={() => void onTogglePublish(site)}
                       className={`rounded-md px-3 py-1 text-xs text-white ${
                         site.status === 'published' ? 'bg-amber-600' : 'bg-emerald-600'
-                      }`}
+                      } disabled:cursor-not-allowed disabled:bg-slate-400`}
                     >
                       {site.status === 'published' ? 'Unpublish' : 'Publish'}
                     </button>

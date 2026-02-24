@@ -18,6 +18,11 @@ function getEnvValue(key: RequiredEnvKey): string {
   return value;
 }
 
+function getOptionalEnvValue(key: string): string | undefined {
+  const value = import.meta.env[key];
+  return value || undefined;
+}
+
 export const firebaseEnv = {
   apiKey: getEnvValue('VITE_FIREBASE_API_KEY'),
   authDomain: getEnvValue('VITE_FIREBASE_AUTH_DOMAIN'),
@@ -25,4 +30,8 @@ export const firebaseEnv = {
   storageBucket: getEnvValue('VITE_FIREBASE_STORAGE_BUCKET'),
   messagingSenderId: getEnvValue('VITE_FIREBASE_MESSAGING_SENDER_ID'),
   appId: getEnvValue('VITE_FIREBASE_APP_ID'),
+};
+
+export const appEnv = {
+  razorpayKeyId: getOptionalEnvValue('VITE_RAZORPAY_KEY_ID'),
 };

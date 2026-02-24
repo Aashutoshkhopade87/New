@@ -8,6 +8,18 @@ Starter includes:
 - Website builder with live preview
 - Analytics tracking + charts
 - Publish / unpublish with subdomain mapping
+- Paid plan system (trial + Razorpay)
+
+## Trial + Subscription
+- 7-day free trial (`trialEndsAt` stored in Firestore user profile)
+- After trial expiry:
+  - all websites are auto-unpublished (`status: draft`)
+  - publish action is disabled in dashboard
+- Paid subscription: **₹199/month**
+- Razorpay checkout is integrated (requires `VITE_RAZORPAY_KEY_ID`)
+- On payment success:
+  - `subscriptionStatus: "active"`
+  - `paidUntil: now + 30 days`
 
 ## Publish system
 When a website is published:
@@ -37,6 +49,9 @@ analytics: {
 ## Firestore structure
 - `users/{uid}`
   - profile + `templateId` + `designConfig`
+  - `trialEndsAt`
+  - `subscriptionStatus`
+  - `paidUntil`
 - `users/{uid}/websites/{websiteId}`
   - `templateId`
   - `designConfig`
@@ -52,6 +67,6 @@ analytics: {
 ## Local setup
 1. `npm install`
 2. `cp .env.example .env`
-3. Add Firebase env credentials
+3. Add Firebase + Razorpay env credentials
 4. Enable Phone Auth and Firestore in Firebase console
 5. `npm run dev`

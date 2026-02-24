@@ -36,6 +36,29 @@ type PublishedSiteRecord = {
   websiteId: string;
 };
 
+function parseDateValue(value: unknown): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value === 'string' || typeof value === 'number') return new Date(value);
+  if (typeof value === 'object' && value !== null && 'toDate' in value) {
+    const candidate = (value as { toDate: () => Date }).toDate();
+    return candidate;
+  }
+  return null;
+}
+
+function hasActivePublishingAccess(profile: UserProfile | null): boolean {
+  if (!profile) return false;
+
+  const paidUntil = parseDateValue(profile.paidUntil);
+  if (profile.subscriptionStatus === 'active' && paidUntil && paidUntil.getTime() > Date.now()) {
+    return true;
+  }
+
+  const trialEndsAt = parseDateValue(profile.trialEndsAt);
+  return Boolean(trialEndsAt && trialEndsAt.getTime() > Date.now());
+}
+
 export async function upsertUserProfile({ user, fullName }: UpsertProfileInput) {
   const userDocRef = doc(firestoreDb, 'users', user.uid);
   const userDoc = await getDoc(userDocRef);
@@ -50,6 +73,8 @@ export async function upsertUserProfile({ user, fullName }: UpsertProfileInput) 
       fullName: fullName?.trim() || null,
       createdAt: serverTimestamp(),
       trialEndsAt,
+      subscriptionStatus: 'inactive',
+      paidUntil: null,
       plan: 'trial',
       status: 'active',
       maxWebsites: 2,
@@ -204,7 +229,49 @@ export async function deleteWebsite(uid: string, websiteId: string) {
   await deleteDoc(websiteRef);
 }
 
+async function unpublishAllWebsites(uid: string) {
+  const websites = await listWebsites(uid);
+  const toUnpublish = websites.filter((site) => site.status === 'published');
+
+  await Promise.all(
+    toUnpublish.map(async (site) => {
+      if (site.subdomain) {
+        await deleteDoc(doc(firestoreDb, 'publishedSites', site.subdomain));
+      }
+
+      await updateDoc(doc(firestoreDb, 'users', uid, 'websites', site.id), {
+        status: 'draft',
+        updatedAt: serverTimestamp(),
+      });
+    }),
+  );
+}
+
+export async function enforceTrialAndPublishingAccess(uid: string): Promise<UserProfile | null> {
+  const profile = await getUserProfile(uid);
+  if (!profile) return null;
+
+  if (hasActivePublishingAccess(profile)) {
+    return profile;
+  }
+
+  await unpublishAllWebsites(uid);
+
+  const userRef = doc(firestoreDb, 'users', uid);
+  await updateDoc(userRef, {
+    subscriptionStatus: 'expired',
+    updatedAt: serverTimestamp(),
+  });
+
+  return getUserProfile(uid);
+}
+
 export async function publishWebsite(uid: string, websiteId: string, shopName: string): Promise<Website> {
+  const profile = await getUserProfile(uid);
+  if (!hasActivePublishingAccess(profile)) {
+    throw new Error('Trial expired. Subscribe to continue publishing.');
+  }
+
   const websiteRef = doc(firestoreDb, 'users', uid, 'websites', websiteId);
 
   await runTransaction(firestoreDb, async (transaction) => {
@@ -301,6 +368,19 @@ export async function resolvePublishedWebsite(subdomain: string): Promise<Websit
 
   const website = mapWebsite(websiteSnapshot.id, websiteSnapshot.data());
   return website.status === 'published' ? website : null;
+}
+
+export async function activateSubscription(uid: string) {
+  const userRef = doc(firestoreDb, 'users', uid);
+  const paidUntil = Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
+
+  await updateDoc(userRef, {
+    subscriptionStatus: 'active',
+    paidUntil,
+    updatedAt: serverTimestamp(),
+  });
+
+  return getUserProfile(uid);
 }
 
 export async function trackPageView(uid: string, websiteId: string): Promise<Website> {
