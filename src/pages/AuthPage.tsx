@@ -1,0 +1,140 @@
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import type { ConfirmationResult, User } from 'firebase/auth';
+import { PhoneAuthForm } from '../components/PhoneAuthForm';
+import type { AuthMessage, AuthMode, AuthStep, PhoneAuthState } from '../types/auth';
+import {
+  getOrCreateRecaptcha,
+  requestPhoneVerification,
+  subscribeToAuthChanges,
+  verifySmsCode,
+} from '../services/authService';
+import { getUserProfile, upsertUserProfile } from '../services/firestoreService';
+import type { UserProfile } from '../types/template';
+import { TemplatePreviewPage } from './TemplatePreviewPage';
+import { DashboardPage } from './DashboardPage';
+
+const initialState: PhoneAuthState = {
+  countryCode: '+91',
+  phoneNumber: '',
+  verificationCode: '',
+  fullName: '',
+  countrySearch: '',
+};
+
+export function AuthPage() {
+  const [state, setState] = useState<PhoneAuthState>(initialState);
+  const [mode, setMode] = useState<AuthMode>('login');
+  const [step, setStep] = useState<AuthStep>('request-otp');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<AuthMessage | null>(null);
+  const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToAuthChanges(setCurrentUser);
+    return unsubscribe;
+  }, []);
+
+  async function refreshProfile(user: User) {
+    const nextProfile = await getUserProfile(user.uid);
+    setProfile(nextProfile);
+  }
+
+  useEffect(() => {
+    if (!currentUser) {
+      setProfile(null);
+      return;
+    }
+
+    void refreshProfile(currentUser);
+  }, [currentUser]);
+
+  const formattedPhone = useMemo(() => {
+    return `${state.countryCode}${state.phoneNumber.replace(/\D/g, '')}`;
+  }, [state.countryCode, state.phoneNumber]);
+
+  function updateState(patch: Partial<PhoneAuthState>) {
+    setState((prev) => ({ ...prev, ...patch }));
+  }
+
+  function handleModeChange(nextMode: AuthMode) {
+    setMode(nextMode);
+    setStep('request-otp');
+    setMessage(null);
+    setConfirmation(null);
+    setState((prev) => ({ ...prev, verificationCode: '' }));
+  }
+
+  async function handlePhoneSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const recaptcha = getOrCreateRecaptcha('firebase-recaptcha');
+      const nextConfirmation = await requestPhoneVerification(formattedPhone, recaptcha);
+      setConfirmation(nextConfirmation);
+      setStep('verify-otp');
+      setMessage({ type: 'success', text: `OTP sent to ${formattedPhone}` });
+    } catch (error) {
+      setMessage({ type: 'error', text: (error as Error).message });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleOtpSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!confirmation) {
+      setMessage({ type: 'error', text: 'Session expired. Please request OTP again.' });
+      setStep('request-otp');
+      return;
+    }
+
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const credential = await verifySmsCode(confirmation, state.verificationCode);
+      await upsertUserProfile({ user: credential.user, fullName: state.fullName });
+      await refreshProfile(credential.user);
+      setMessage({
+        type: 'success',
+        text: mode === 'signup' ? 'Signup complete. Trial started!' : 'Login successful.',
+      });
+    } catch (error) {
+      setMessage({ type: 'error', text: (error as Error).message });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (currentUser && profile?.templateId) {
+    return <DashboardPage user={currentUser} profile={profile} />;
+  }
+
+  if (currentUser) {
+    return <TemplatePreviewPage user={currentUser} onTemplateSaved={() => refreshProfile(currentUser)} />;
+  }
+
+  return (
+    <main className="min-h-screen bg-slate-100 px-4 py-8 md:px-6">
+      <div className="mx-auto flex w-full max-w-5xl flex-col items-stretch gap-5 md:flex-row md:items-start">
+        <PhoneAuthForm
+          state={state}
+          mode={mode}
+          step={step}
+          loading={loading}
+          message={message}
+          onChange={updateState}
+          onModeChange={handleModeChange}
+          onSubmitPhone={handlePhoneSubmit}
+          onSubmitOtp={handleOtpSubmit}
+          onBack={() => setStep('request-otp')}
+        />
+      </div>
+    </main>
+  );
+}
